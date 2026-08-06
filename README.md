@@ -63,7 +63,8 @@ Il procedimento va aggiunto in `PROC`, con la stessa `id` della cena.
 | `icona.svg` | Icona dell'app (browser e Android) |
 | `logotipo.svg` | Il nome, usato nell'intestazione |
 | `marchio-completo.svg` | Simbolo e nome insieme |
-| `foto/` | Le 10 fotografie dei piatti, per categoria |
+| `foto/` | Le 13 fotografie dei piatti, una per categoria |
+| `CREDITI.md` | Autori e licenze delle fotografie |
 | `branding/` | Il materiale originale del marchio |
 | `marchio.svg` | Marchio nudo, usato nell'intestazione |
 | `icona-180.png` | Icona sulla schermata Home di iPhone e iPad |

@@ -564,7 +564,7 @@ const PRODOTTI=[
  {id:'calamari',n:'Calamari',r:'Pescheria',c:'giorno',d:1},
  {id:'polpo',n:'Polpo',r:'Pescheria',c:'giorno',d:1},
  {id:'seppie',n:'Seppie',r:'Pescheria',c:'giorno',d:1},
- {id:'focaccia',n:'Focaccia barese',r:'Panificio',c:'giorno',d:1},
+ {id:'focaccia',n:'Focaccia',r:'Panificio',c:'giorno',d:1},
 
  {id:'uova',n:'Uova',r:'Frigo',c:'frigo',d:21},
  {id:'caciocavallo',n:'Caciocavallo',r:'Frigo',c:'frigo',d:25},
@@ -576,7 +576,7 @@ const PRODOTTI=[
  {id:'brie',n:'Brie / formaggio molle',r:'Frigo',c:'frigo',d:14},
  {id:'feta',n:'Feta',r:'Frigo',c:'frigo',d:20},
  {id:'ricottaforte',n:'Ricotta forte',r:'Frigo',c:'frigo',d:60},
- {id:'capocollo',n:'Capocollo di Martina',r:'Frigo',c:'frigo',d:14},
+ {id:'capocollo',n:'Capocollo',r:'Frigo',c:'frigo',d:14},
  {id:'crudo',n:'Prosciutto crudo',r:'Frigo',c:'frigo',d:10},
  {id:'cotto',n:'Prosciutto cotto',r:'Frigo',c:'frigo',d:8},
  {id:'mortadella',n:'Mortadella',r:'Frigo',c:'frigo',d:8},
@@ -619,7 +619,11 @@ const PRODOTTI=[
  {id:'prezzemolo',n:'Prezzemolo',r:'Verdura',c:'verdura',d:6},
  {id:'menta',n:'Menta',r:'Verdura',c:'verdura',d:6,st:[4,10]},
 
- {id:'pane',n:'Pane di Altamura',r:'Pane',c:'dispensa',d:6},
+ {id:'pane',n:'Pane',r:'Pane',c:'dispensa',d:4},
+ {id:'baguette',n:'Baguette da surgelare',r:'Surgelati',c:'dispensa',d:0},
+ {id:'pisellisurg',n:'Piselli surgelati',r:'Surgelati',c:'dispensa',d:0},
+ {id:'spinacisurg',n:'Spinaci surgelati',r:'Surgelati',c:'dispensa',d:0},
+ {id:'gamberisurg',n:'Gamberi surgelati',r:'Surgelati',c:'dispensa',d:0},
  {id:'friselle',n:'Friselle',r:'Pane',c:'dispensa',d:0},
  {id:'taralli',n:'Taralli',r:'Pane',c:'dispensa',d:0},
  {id:'piadina',n:'Piadine',r:'Pane',c:'dispensa',d:30},
@@ -1110,7 +1114,7 @@ const CENE=[
  {id:'x02',n:'Pane e pomodoro',m:3,cat:'fredde',ing:['pane','pomodori','origano','olio']},
  {id:'x03',n:'Panino con capocollo e pecorino',m:5,cat:'fredde',ing:['pane','capocollo','pecorino']},
  {id:'x04',n:'Panino con mortadella e stracciatella',m:5,cat:'fredde',stop:'caseificio',ing:['pane','mortadella','stracciatella']},
- {id:'x05',n:'Focaccia barese e via',m:0,cat:'fredde',stop:'panificio',ing:['focaccia']},
+ {id:'x05',n:'Focaccia e via',m:0,cat:'fredde',stop:'panificio',ing:['focaccia']},
  {id:'x06',n:'Insalatona con pecorino e olive',m:8,cat:'fredde',ing:['insalata','pecorino','olive','olio']},
  {id:'x07',n:'Insalata di rucola, grana e pere',m:8,cat:'fredde',ing:['rucola','grana','noci']},
  {id:'x08',n:'Insalata greca',m:10,cat:'fredde',ing:['cetrioli','pomodori','feta','olive','cipolle']},
@@ -1192,10 +1196,10 @@ const ICONA_STOP={caseificio:'caseificio',macellaio:'macellaio',panificio:'panif
    deve stampare "undefined": ripiega su un segnaposto neutro. */
 const icoStop=s=>ico(ICONA_STOP[s]||'cene','mini');
 /* icona a tratto dallo sprite in cima alla pagina */
-const FOTO_CAT=new Set(['pasta','carne','zuppe','pesce','etnico','riso','forno','patate','verdure','legumi']);
+const FOTO_CAT=new Set(['pasta','carne','uova','formaggi','pesce','verdure','riso','legumi','patate','fredde','etnico','forno','zuppe']);
 /* riquadro di un piatto: la fotografia se c'e', altrimenti l'icona a tratto */
 function riquadro(f,cls){
-  if(FOTO_CAT.has(f.ic))return '<img class="foto" src="foto/'+f.ic+'.png" alt="" decoding="async">';
+  if(FOTO_CAT.has(f.ic))return '<img class="foto" src="foto/'+f.ic+'.jpg" alt="" decoding="async">';
   return ico(f.ic,cls);
 }
 const ico=(nome,cls='')=>'<svg class="tratto '+cls+'" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+nome+'"/></svg>';
@@ -1207,7 +1211,7 @@ const FACCIA_REPARTO={
  Caseificio:['caseificio','#C8973A'], Macellaio:['macellaio','#CD591E'], Pescheria:['pescheria','#4E7C6A'],
  Panificio:['panificio','#A8703A'], Pane:['panificio','#A8703A'], Verdura:['verdure','#6D7633'],
  Frigo:['frigo','#5E8570'], Dispensa:['dispensa','#8A8F5F'], Etnico:['etnico','#96565F'],
- Casa:['casa','#7A725E'], Igiene:['bagno','#5C7360'], Altro:['lista','#7A725E']
+ Surgelati:['frigo','#4E7C8C'], Casa:['casa','#7A725E'], Igiene:['bagno','#5C7360'], Altro:['lista','#7A725E']
 };
 function capoSezione(rep,conta){
   const [i,col]=FACCIA_REPARTO[rep]||['lista','#7A725E'];
@@ -1345,7 +1349,7 @@ function mancanti(c){
 
 
 /* ---------- ordine delle corsie ---------- */
-const REPARTI_BASE=['Caseificio','Macellaio','Pescheria','Panificio','Pane','Verdura','Frigo','Dispensa','Etnico','Casa','Igiene','Altro'];
+const REPARTI_BASE=['Caseificio','Macellaio','Pescheria','Panificio','Pane','Verdura','Frigo','Surgelati','Dispensa','Etnico','Casa','Igiene','Altro'];
 function ordineReparti(){
   const o=(S.ordine&&S.ordine.length)?S.ordine.slice():REPARTI_BASE.slice();
   REPARTI_BASE.forEach(r=>{if(!o.includes(r))o.push(r);});
