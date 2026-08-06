@@ -1,3 +1,8 @@
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# file di lavoro
+_*.png
+_*.jpg
+*.b64

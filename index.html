@@ -1,66 +1,2518 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#071A38">
-  <meta name="description" content="Ricette scelte e lista della spesa in un unico posto.">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Speso">
-  <title>Speso</title>
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="icona.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="icona-180.png">
-  <link rel="stylesheet" href="styles.css?v=11">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Speso — decidi le cene, la lista si scrive da sola</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#283A2A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Speso">
+<link rel="icon" href="icona.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icona-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- crossorigin: senza, la risposta è opaca e il service worker non può metterla
+     in cache, quindi offline i caratteri non arriverebbero -->
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" crossorigin>
+<style>
+:root{
+  /* palette Speso */
+  --crema:#FAF5EF;      /* sfondo */
+  --carta:#FFFFFF;      /* schede */
+  --guscio:#F1E9E0;     /* pastiglie e superfici tenui */
+  --bosco:#283A2A;      /* verde scuro: marchio, carta di stasera, primario */
+  --oliva:#6D7633;      /* verde accento: conferme, avanzamento */
+  --terra:#CD591E;      /* terracotta: finito, allarmi */
+  --ambra:#E4AC55;      /* ambra: poco, attenzione */
+  --pietra:#78705C;     /* grigio caldo: testo secondario. Il branding dà #7A725E,
+                           di due punti più chiaro: lì non arrivava a 4.5 di contrasto
+                           sulla crema, e qui ci va del testo da leggere davvero. */
+  --inchiostro:#22261F; /* testo */
+  --linea:#EFE7DD;      /* bordi: una linea, non una gabbia */
+  --display:'Sora',system-ui,sans-serif;
+  --body:'Inter',system-ui,-apple-system,sans-serif;
+  --mono:ui-monospace,'SFMono-Regular',Menlo,monospace;
+  --tondo:16px;         /* raggio delle schede */
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--crema);color:var(--inchiostro);
+  font-family:var(--body);font-size:16px;line-height:1.45;
+  padding-bottom:calc(76px + env(safe-area-inset-bottom));
+}
+button{font-family:inherit;font-size:inherit;cursor:pointer;border:none;background:none;color:inherit}
+body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+:focus-visible{outline:2px solid var(--oliva);outline-offset:2px}
+
+/* ---------- intestazione ---------- */
+.top{padding:18px 18px 10px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.marchio{display:flex;align-items:center;gap:10px;min-width:0}
+.marchio img{flex:none}
+.marchio .logotipo{display:none;height:30px;width:auto}
+.top .oggi{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--pietra)}
+.top h1{font-family:var(--display);font-weight:600;font-size:25px;line-height:1;margin:3px 0 0;letter-spacing:-.01em}
+.reset{font-size:12px;font-weight:500;color:var(--pietra);border:1px solid var(--linea);border-radius:99px;padding:8px 14px;background:var(--carta);white-space:nowrap}
+
+.vista{display:none;padding:0 18px}
+.vista.attiva{display:block}
+
+/* ---------- carta di stasera ---------- */
+.stasera{
+  background:var(--bosco);color:#fff;border-radius:20px;
+  padding:20px 20px 18px;margin-top:8px;position:relative;overflow:hidden;
+}
+.stasera::after{
+  content:"";position:absolute;right:-52px;top:-52px;width:150px;height:150px;
+  border-radius:50%;background:rgba(255,255,255,.05);pointer-events:none;
+}
+.fermata{
+  display:inline-flex;align-items:center;gap:7px;font-weight:600;
+  font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+  background:rgba(255,255,255,.15);padding:7px 12px;border-radius:99px;
+}
+.stasera h2{font-family:var(--display);font-weight:600;font-size:29px;line-height:1.1;margin:14px 0 6px;position:relative}
+.stasera .meta{font-size:12.5px;color:rgba(255,255,255,.72)}
+.stasera .ing{font-size:14.5px;color:rgba(255,255,255,.86);margin:12px 0 0;position:relative}
+.azioni{display:flex;gap:9px;margin-top:16px;position:relative}
+.azioni button{
+  flex:1;background:rgba(255,255,255,.14);color:#fff;border-radius:99px;
+  padding:12px 8px;font-weight:600;font-size:14px;
+}
+.azioni button.pieno{background:#fff;color:var(--bosco)}
+
+.avviso{
+  background:var(--carta);border:1px solid var(--linea);border-left:4px solid var(--ambra);
+  border-radius:14px;padding:14px 16px;margin-top:12px;
+}
+.avviso.chiaro{border-left-color:var(--oliva)}
+.avviso .et{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--pietra);margin-bottom:4px}
+.avviso .tx{font-size:14.5px;line-height:1.4}
+.titoletto{
+  font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--pietra);margin:26px 0 10px;display:flex;justify-content:space-between;align-items:center;
+}
+
+/* ---------- settimana ---------- */
+.giorno{
+  background:var(--carta);border:1px solid var(--linea);border-radius:14px;
+  padding:13px 15px;margin-bottom:8px;display:flex;align-items:center;gap:13px;width:100%;text-align:left;
+}
+.giorno .gg{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--pietra);width:36px;flex:none}
+.giorno.oggi{border-color:var(--bosco);border-width:2px}
+.giorno.oggi .gg{color:var(--bosco);font-weight:700}
+.giorno .nome{flex:1;font-weight:500;font-size:15px}
+.giorno .nome.vuoto{color:var(--pietra);font-weight:400}
+.giorno .pin{font-size:16px;flex:none;opacity:.85}
+.giorno.fuori{background:transparent;border-style:dashed}
+.giorno.fuori .nome{color:var(--pietra);font-style:italic}
+
+/* ---------- liste ---------- */
+.sezione{background:var(--carta);border:1px solid var(--linea);border-radius:18px;padding:6px 16px;margin-bottom:14px;box-shadow:0 1px 2px rgba(40,58,42,.03),0 10px 24px -16px rgba(40,58,42,.16)}
+.capo-sezione{display:flex;align-items:center;gap:11px;padding:13px 0 9px}
+.capo-sezione h3{flex:1;margin:0}
+.capo-sezione .conta{font-size:12.5px;color:var(--pietra)}
+.quadretto{width:32px;height:32px;flex:none;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.quadretto .tratto{width:18px;height:18px}
+.sezione h3{
+  font-family:var(--display);font-weight:600;font-size:18px;margin:0 0 3px;letter-spacing:-.01em;
+}
+.sezione .sub{font-size:12.5px;color:var(--pietra);margin:0 0 10px}
+.riga{
+  background:var(--carta);border:1px solid var(--linea);border-radius:14px;
+  padding:13px 15px;margin-bottom:7px;display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+}
+.sezione .riga{background:transparent;border:none;border-radius:0;padding:11px 2px;margin-bottom:0;border-bottom:1px solid var(--linea)}
+.sezione .riga:last-child{border-bottom:none}
+.box{
+  width:22px;height:22px;border:2px solid var(--linea);border-radius:99px;flex:none;
+  display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;
+}
+.riga.presa .box{background:var(--oliva);border-color:var(--oliva)}
+.riga.presa .etichetta{text-decoration:line-through;color:var(--pietra)}
+.etichetta{flex:1;font-size:15px;text-align:left}
+.tratto{width:22px;height:22px;flex:none;display:block;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.tratto.grande{width:42px;height:42px;stroke-width:1.3}
+.tratto.media{width:28px;height:28px;stroke-width:1.5}
+.tratto.enorme{width:58px;height:58px;stroke-width:1.1}
+.foto{width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit}
+.confoto{background:var(--guscio)!important;border-color:var(--linea)!important;overflow:hidden;padding:0}
+.tratto.mini{width:15px;height:15px;stroke-width:1.8}
+.pastiglia{width:36px;height:36px;flex:none;border-radius:99px;background:var(--guscio);color:var(--pietra);display:flex;align-items:center;justify-content:center}
+.pastiglia .tratto{width:19px;height:19px}
+.stellina{display:inline-flex;vertical-align:-2px;margin-right:5px}
+.icona .tratto{width:19px;height:19px}
+.tag .tratto{display:inline-block;vertical-align:-3px}
+.spunta-riga{flex:1;min-width:0;display:flex;align-items:center;gap:10px;text-align:left;padding:0}
+.cerchio{width:21px;height:21px;flex:none;border-radius:99px;border:1.8px solid var(--linea);display:flex;align-items:center;justify-content:center;color:#fff;margin-left:auto}
+.riga.presa .cerchio{background:var(--oliva);border-color:var(--oliva)}
+.riga.presa .cerchio .tratto{width:12px;height:12px;stroke-width:2.6}
+.tag{
+  font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  padding:4px 9px;border-radius:99px;flex:none;
+}
+.tag.finito{background:#F8E4D8;color:#A8410F}
+.tag.poco{background:#FBF0DC;color:#8A6420}
+.tag.mano{background:var(--guscio);color:#6B6250}
+.elimina{color:var(--pietra);font-size:19px;line-height:1;padding:0 2px;flex:none}
+
+.aggiungi{display:flex;gap:8px;margin:4px 0 10px}
+.aggiungi select{flex:1;font-family:var(--body);font-size:15px;padding:13px 15px;border:1px solid var(--linea);border-radius:14px;background:var(--carta);color:var(--inchiostro)}
+.aggiungi input{
+  flex:1;min-width:0;font-family:var(--body);font-size:15px;padding:13px 15px;
+  border:1px solid var(--linea);border-radius:14px;background:var(--carta);color:var(--inchiostro);
+}
+.aggiungi button{background:var(--bosco);color:#fff;border-radius:14px;padding:0 18px;font-weight:600;flex:none}
+
+.fine-spesa{
+  width:100%;background:var(--oliva);color:#fff;border-radius:99px;
+  padding:15px;font-weight:600;font-size:15.5px;margin:6px 0 30px;
+}
+.fine-spesa[disabled]{background:var(--linea);color:var(--pietra)}
+
+/* ---------- dispensa ---------- */
+.stati{display:flex;gap:4px;flex:none}
+.stati button{
+  font-size:11px;font-weight:600;letter-spacing:.03em;
+  padding:7px 10px;border-radius:99px;background:var(--guscio);color:var(--pietra);border:1px solid transparent;
+}
+.stati button.on[data-s="ok"]{background:var(--oliva);color:#fff}
+.stati button.on[data-s="poco"]{background:var(--ambra);color:#fff}
+.stati button.on[data-s="finito"]{background:var(--terra);color:#fff}
+.voce{flex:1;min-width:0}
+.voce .n{font-size:15px}
+.voce .g{font-size:11.5px;color:var(--pietra);margin-top:2px}
+.voce .g.allarme{color:var(--terra);font-weight:700}
+.voce .g.attenzione{color:var(--ambra)}
+
+/* ---------- filtri ---------- */
+.filtri{display:flex;gap:7px;overflow-x:auto;padding:2px 0 12px;margin:0 -18px;padding-left:18px;padding-right:18px;scrollbar-width:none}
+.filtri::-webkit-scrollbar{display:none}
+.filtri button{
+  font-size:12px;font-weight:500;letter-spacing:.01em;
+  padding:8px 13px;border-radius:20px;background:var(--carta);border:1px solid var(--linea);
+  color:var(--pietra);white-space:nowrap;flex:none;
+}
+.filtri button.on{background:var(--bosco);color:#fff;border-color:var(--bosco)}
+
+/* ---------- cene ---------- */
+.cena{background:var(--carta);border:1px solid var(--linea);border-radius:16px;padding:13px 15px;margin-bottom:8px;width:100%;text-align:left;display:flex;gap:13px;align-items:flex-start}
+.cena .corpo{flex:1;min-width:0}
+.ritratto{
+  width:58px;height:58px;flex:none;border-radius:14px;border:1px solid;
+  display:flex;align-items:center;justify-content:center;font-size:28px;
+}
+.ritrattone{
+  width:100%;height:132px;border-radius:18px;border:1px solid;
+  display:flex;align-items:center;justify-content:center;font-size:62px;margin-bottom:14px;
+}
+.passo{background:var(--carta);border:1px solid var(--linea);border-radius:14px;padding:14px 15px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left}
+.passo .num{font-size:12.5px;font-weight:600;color:var(--oliva);flex:none;padding-top:2px;width:20px}
+.passo.fatto{opacity:.45}
+.passo.fatto .tx{text-decoration:line-through}
+.passo .tx{flex:1;font-size:15px;line-height:1.45}
+.cronometro{
+  background:var(--bosco);color:#fff;border-radius:18px;padding:20px;text-align:center;margin-bottom:14px;
+}
+.cronometro .t{font-family:var(--display);font-size:40px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.cronometro .c{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-top:7px}
+.cronometro .az{display:flex;gap:8px;margin-top:14px}
+.cronometro .az button{flex:1;background:rgba(255,255,255,.15);color:#fff;border-radius:99px;padding:12px;font-weight:600}
+.spesaGrande{position:fixed;inset:0;background:var(--crema);z-index:40;overflow-y:auto;padding:18px 18px 100px}
+.spesaGrande .capo{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.spesaGrande h2{font-family:var(--display);font-weight:600;font-size:23px;margin:0;letter-spacing:-.01em}
+.barra{height:8px;background:var(--linea);border-radius:99px;overflow:hidden;margin:10px 0 18px}
+.barra i{display:block;height:100%;background:var(--oliva);transition:width .2s}
+.rigona{background:var(--carta);border:1px solid var(--linea);border-radius:16px;padding:18px 16px;margin-bottom:8px;display:flex;align-items:center;gap:14px;width:100%;text-align:left;font-size:17px}
+.rigona .box{width:27px;height:27px}
+.chiudiGrande{position:fixed;left:18px;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:41;background:var(--bosco);color:#fff;border-radius:99px;padding:16px;font-weight:600;font-size:16px}
+.cena .stellina{color:var(--ambra)}
+.segni{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.segni:empty{display:none}
+.griglia{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:6px}
+.piastrella{
+  background:var(--carta);border:1px solid var(--linea);border-radius:16px;
+  padding:16px 14px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;position:relative;
+}
+.piastrella .ico{font-size:22px;line-height:1;margin-bottom:2px}
+.piastrella .et{font-family:var(--display);font-weight:600;font-size:14.5px;line-height:1.2}
+.piastrella .num{font-size:12px;color:var(--pietra)}
+.piastrella.scorc{background:var(--bosco);border-color:var(--bosco);color:#fff}
+.piastrella.scorc .num{color:rgba(255,255,255,.65)}
+.indietro{font-size:12.5px;font-weight:500;color:var(--pietra);padding:10px 0 4px}
+.titolone{font-family:var(--display);font-weight:600;font-size:24px;margin:2px 0 10px;display:flex;justify-content:space-between;align-items:baseline;letter-spacing:-.01em}
+.titolone span{font-family:var(--body);font-size:13px;color:var(--pietra);font-weight:400}
+.cena .intestazione{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.cena h4{font-family:var(--display);font-weight:600;font-size:16.5px;margin:0;line-height:1.25;letter-spacing:-.01em}
+.cena .durata{font-size:12px;font-weight:500;color:var(--pietra);flex:none;padding-top:3px}
+.cena .ing{font-size:13.5px;color:var(--pietra);margin:7px 0 0}
+.cena .piede{display:flex;align-items:center;gap:9px;margin-top:12px}
+.cena .piede .tag{padding:5px 9px}
+.tag.dove{background:var(--guscio);color:#6B6250}
+.tag.pronta{background:#E9EEDA;color:#4E5623}
+.tag.manca{background:#F2EDE6;color:var(--pietra)}
+.icona{
+  width:40px;height:40px;border-radius:99px;background:var(--guscio);
+  border:1px solid var(--linea);font-size:16px;display:flex;align-items:center;justify-content:center;flex:none;
+}
+.icona.attiva{background:var(--oliva);border-color:var(--oliva);color:#fff}
+.metti{margin-left:auto;background:var(--bosco);color:#fff;border-radius:99px;padding:10px 16px;font-weight:600;font-size:13.5px}
+
+/* ---------- nav ---------- */
+nav{
+  position:fixed;left:0;right:0;bottom:0;background:var(--carta);
+  border-top:1px solid var(--linea);display:flex;
+  padding-bottom:env(safe-area-inset-bottom);z-index:20;
+}
+nav button{flex:1;padding:11px 4px 12px;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--pietra)}
+nav button .ico{font-size:19px;line-height:1}
+nav button .et{font-size:10.5px;font-weight:500;letter-spacing:.01em}
+nav button.on{color:var(--bosco)}
+nav button.on .et{font-weight:600}
+.pallino{position:absolute;top:8px;margin-left:20px;width:7px;height:7px;border-radius:50%;background:var(--terra)}
+
+/* ---------- foglio scelta ---------- */
+.velo{position:fixed;inset:0;background:rgba(27,33,36,.45);z-index:30;display:none}
+.velo.aperto{display:block}
+.foglio{
+  position:fixed;left:0;right:0;bottom:0;max-height:82vh;overflow-y:auto;z-index:31;
+  background:var(--crema);border-radius:20px 20px 0 0;padding:18px 18px calc(24px + env(safe-area-inset-bottom));
+  transform:translateY(100%);transition:transform .22s ease;
+}
+.foglio.aperto{transform:translateY(0)}
+.foglio h3{font-family:var(--display);font-weight:600;font-size:21px;margin:2px 0 12px}
+.scelta{width:100%;text-align:left;background:var(--carta);border:1px solid var(--linea);border-radius:11px;padding:12px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px}
+.scelta .n{flex:1;font-size:15px}
+.scelta .d{font-size:12px;font-weight:500;color:var(--pietra);flex:none}
+.vuoto-stato{text-align:center;color:var(--pietra);font-size:14.5px;padding:34px 20px;line-height:1.6}
+.caricamento{text-align:center;color:var(--pietra);font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:40px}
+
+/* ---------- cruscotto ---------- */
+.capo-pagina{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;margin:2px 0 18px;flex-wrap:wrap}
+.capo-pagina h2{font-family:var(--display);font-weight:600;font-size:26px;margin:0;letter-spacing:-.015em;color:var(--bosco)}
+.capo-pagina .periodo{font-size:13.5px;color:var(--pietra);margin-top:3px}
+.pillola{display:inline-flex;align-items:center;gap:8px;background:var(--oliva);color:#fff;border-radius:99px;padding:11px 18px;font-weight:600;font-size:14px;white-space:nowrap}
+.vedi{font-size:13px;font-weight:600;color:var(--oliva);text-transform:none;letter-spacing:0}
+.vedi.tutta{display:block;width:100%;text-align:center;padding:13px 0 4px;border-top:1px solid var(--linea);margin-top:6px}
+.cruscotto{display:grid;gap:18px;margin-top:6px}
+.pannello{padding:6px 16px 8px}
+.capo-pannello{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:14px 0 6px}
+.capo-pannello h3{font-family:var(--display);font-weight:600;font-size:17px;margin:0}
+.capo-pannello .conta{font-size:12.5px;color:var(--pietra)}
+.gruppo{padding:6px 0}
+.capo-gruppo{display:flex;align-items:center;gap:10px;padding:6px 0 2px}
+.capo-gruppo .et{font-size:12.5px;font-weight:600;color:var(--pietra)}
+.mini{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:9px}
+.minicarta{background:var(--carta);border:1px solid var(--linea);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:7px}
+.minicarta .quadro{width:100%;height:56px;border-radius:11px;border:1px solid;display:flex;align-items:center;justify-content:center}
+.minicarta .n{font-size:13.5px;font-weight:500;line-height:1.25}
+.minicarta .d{font-size:11.5px;color:var(--pietra)}
+
+
+/* pannelli e liste, misurati sul mockup */
+.pannello{padding:20px 22px 16px}
+.tit-pannello{font-family:var(--display);font-weight:600;font-size:19px;margin:0 0 6px;letter-spacing:-.01em}
+.capo-pannello{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:0 0 10px}
+.capo-blocco{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:2px 0 12px}
+.capo-blocco h3{font-family:var(--display);font-weight:600;font-size:16.5px;margin:0}
+.divisorio{height:1px;background:var(--linea);margin:18px 0 16px}
+.gruppo{padding:2px 0 10px;border-top:1px solid var(--linea);margin-top:10px}
+.gruppo:first-of-type{border-top:none;margin-top:0}
+.capo-gruppo{display:flex;align-items:center;gap:9px;padding:10px 0 6px}
+.capo-gruppo .et{font-size:14px;font-weight:600;color:var(--inchiostro)}
+.vocespesa{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:6px 0 6px 31px}
+.vocespesa .n{flex:1;font-size:13.5px;color:var(--inchiostro)}
+.vocespesa .q{font-size:11.5px;color:var(--pietra);white-space:nowrap}
+.vocespesa .cerchio{width:16px;height:16px;border-width:1.5px;margin-left:2px}
+.vocespesa[aria-pressed=true] .n{text-decoration:line-through;color:var(--pietra)}
+.piedecarta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.piedecarta .min{font-size:12px;color:var(--pietra)}
+.cuore{color:var(--linea);display:inline-flex}
+.cuore.attivo{color:var(--ambra)}
+
+
+.lato{display:grid;gap:16px}
+.lato .stasera{padding:18px 18px 16px;border-radius:18px}
+.lato .stasera h2{font-size:21px;margin:11px 0 5px}
+.lato .stasera .ing{font-size:13.5px;margin-top:9px}
+.lato .stasera .azioni{margin-top:13px}
+.lato .stasera .azioni button{padding:10px 8px;font-size:13.5px}
+@media(max-width:899px){ .cruscotto .lato{order:-1} .lato .pannello{display:none} }
+
+
+/* telefono: Preferiti sta solo nel menu laterale, e la cena di stasera resta in cima */
+#btnPreferiti{display:none}
+@media(min-width:900px){ #btnPreferiti{display:flex} }
+@media(max-width:899px){
+  #vistaStasera{display:flex;flex-direction:column}
+  #vistaStasera .capo-pagina{order:1}
+  #vistaStasera .cruscotto{order:2}
+  #vistaStasera .settimana{order:3}
+}
+
+/* ---------- griglie: su telefono una colonna, poi si aprono ---------- */
+.settimana,.schede,.sezioni,.faccende{display:grid;gap:8px}
+.avvisi{display:grid;gap:10px;margin-top:12px}
+.avvisi .avviso{margin-top:0}
+.settimana{margin-bottom:26px}
+.giorno .quadro{
+  width:42px;height:42px;flex:none;border-radius:12px;border:1px solid var(--linea);
+  background:var(--guscio);display:flex;align-items:center;justify-content:center;font-size:21px;color:var(--pietra);
+}
+.giorno .testo{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+
+/* ---------- schermi larghi: il menù passa di lato ---------- */
+@media(min-width:900px){
+  body{padding-bottom:0;display:grid;grid-template-columns:252px minmax(0,1fr);min-height:100vh}
+  /* le schede si staccano appena dal fondo, come nel branding */
+  .riga,.cena,.giorno,.piastrella,.passo,.rigona,.avviso,.sezione{box-shadow:0 1px 2px rgba(40,58,42,.04),0 8px 20px -12px rgba(40,58,42,.14)}
+  .sezione{background:var(--carta);border:1px solid var(--linea);border-radius:18px;padding:18px 18px 12px;margin-bottom:0}
+  .sezione .riga{box-shadow:none;border-color:transparent;background:transparent;padding:10px 4px;margin-bottom:0;border-bottom:1px solid var(--linea);border-radius:0}
+  .sezione .riga:last-child{border-bottom:none}
+  .sezioni{grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px;align-items:start}
+  .schede{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;align-items:start}
+  .faccende{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
+  .avvisi{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+  .settimana{grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+  /* i giorni diventano schedine verticali */
+  .settimana .giorno{
+    flex-direction:column;align-items:stretch;gap:9px;padding:12px;text-align:left;margin-bottom:0;
+  }
+  .settimana .giorno .quadro{width:100%;height:auto;aspect-ratio:1;border-radius:12px}
+  .settimana .giorno .gg{width:auto}
+  .settimana .giorno .nome{font-size:13px;line-height:1.3;font-weight:500}
+  .settimana .giorno .pin{position:absolute;top:11px;right:11px}
+  .settimana .giorno{position:relative}
+  /* due colonne: contenuto a sinistra, lista della spesa a fianco */
+  .cruscotto{grid-template-columns:minmax(0,1fr) 340px;align-items:start;gap:20px}
+  .lato{position:sticky;top:26px}
+  .stasera{max-width:none}
+  /* le cene diventano schede verticali con il riquadro sopra */
+  .schede .cena{flex-direction:column;gap:10px;padding:12px;align-items:stretch}
+  .schede .cena .durata{display:none}
+  .schede .cena .segni{display:none}
+  .schede .cena .ritratto{width:100%;height:132px;aspect-ratio:auto;border-radius:12px;overflow:hidden}
+  .schede .cena .corpo{width:100%}
+  nav{
+    grid-column:1;grid-row:1;
+    position:sticky;top:0;align-self:start;height:100vh;left:auto;right:auto;bottom:auto;
+    flex-direction:column;justify-content:flex-start;gap:4px;
+    border-top:none;border-right:none;background:transparent;padding:96px 14px 18px;
+  }
+  nav button{
+    flex:none;flex-direction:row;justify-content:flex-start;gap:12px;
+    padding:12px 14px;border-radius:12px;width:100%;
+  }
+  nav button .ico{font-size:17px;width:22px;text-align:center}
+  nav button .et{font-size:14.5px;letter-spacing:0;text-transform:none}
+  nav button.on{background:var(--guscio)}
+  nav{background:transparent}
+  nav button:hover:not(.on){background:rgba(0,0,0,.03)}
+  .pallino{position:static;margin:0 0 0 auto;width:8px;height:8px}
+  .top{
+    position:fixed;top:0;left:0;width:252px;padding:20px 20px 0;
+    align-items:flex-start;flex-direction:column;gap:14px;z-index:21;
+  }
+  .top .oggi,.top h1{display:none}
+  .marchio .logotipo{display:block}
+  .marchio img{height:34px;width:auto}
+  .reset{display:none}
+  .vista{grid-column:2;grid-row:1;padding:26px 36px 60px;max-width:1320px;width:100%;margin:0 auto}
+  .vista.attiva{display:block}
+  .griglia{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+  /* la carta di stasera non deve diventare un cartellone */
+  .stasera{max-width:760px}
+  .fine-spesa,.aggiungi{max-width:560px}
+  .filtri{margin:0;padding-left:0;padding-right:0;flex-wrap:wrap;overflow:visible}
+  .foglio{
+    left:50%;right:auto;bottom:auto;top:50%;width:min(560px,92vw);max-height:84vh;
+    border-radius:20px;transform:translate(-50%,-46%) scale(.98);opacity:0;
+    transition:transform .18s ease,opacity .18s ease;
+  }
+  .foglio.aperto{transform:translate(-50%,-50%) scale(1);opacity:1}
+  .spesaGrande{padding:34px 34px 110px}
+  .chiudiGrande{left:auto;right:34px;width:300px}
+}
+/* Opzioni: in fondo al menù laterale, dove sta nel mockup */
+.voceOpzioni{display:none}
+@media(min-width:900px){
+  .voceOpzioni{display:flex;margin-top:auto}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
 </head>
 <body>
-  <aside class="sidebar" aria-label="Navigazione principale">
-    <a class="brand" href="#scelte" data-view-link="scelte" aria-label="Speso, vai alle scelte">Speso</a>
-    <nav class="side-nav">
-      <button type="button" data-view="scelte">
-        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3h12v18H6zM9 3V1m6 2V1M9 8h6m-6 4h6m-6 4h4"/></svg>
-        <span>Scelte</span>
-      </button>
-      <button type="button" data-view="ricette">
-        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 4.5A3.5 3.5 0 0 1 7.5 1H11v19H7.5A3.5 3.5 0 0 0 4 23zM20 4.5A3.5 3.5 0 0 0 16.5 1H13v19h3.5A3.5 3.5 0 0 1 20 23z"/></svg>
-        <span>Ricette</span>
-      </button>
-      <button type="button" data-view="spesa">
-        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 4h2l2.2 10.2a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 2-1.6L21 7H6m4 13a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm9 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg>
-        <span>Spesa</span>
-        <span class="nav-count" id="sideCount" hidden></span>
-      </button>
-    </nav>
-  </aside>
 
-  <header class="mobile-header">
-    <a class="brand" href="#scelte" data-view-link="scelte">Speso</a>
-    <button class="quiet-button" type="button" data-action="reset">Azzera</button>
-  </header>
+<!-- Icone disegnate a tratto, nello stile del marchio. Niente emoji nell'interfaccia:
+     a dimensioni grandi sembrano adesivi e rovinano tutto il resto. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<g id="i-stasera"><path d="M17.5 14.5A7 7 0 0 1 9.5 6.5a7.5 7.5 0 1 0 8 8Z"/></g>
+<g id="i-lista"><path d="M5 3.5h14v17l-2.3-1.6-2.4 1.6-2.3-1.6-2.3 1.6L7.4 19 5 20.5Z"/><path d="M9 8h6M9 12h6"/></g>
+<g id="i-dispensa"><path d="M8 3.5h8M7.5 7h9v13.5h-9Z"/><path d="M7.5 7c0-2 .8-3.5 2-3.5m5 0c1.2 0 2 1.5 2 3.5"/><path d="M7.5 13h9"/></g>
+<g id="i-cene"><path d="M12 4.5a7 7 0 0 1 7 7H5a7 7 0 0 1 7-7Z"/><path d="M3.5 14.5h17M6.5 18h11"/></g>
+<g id="i-casa"><path d="M4 10.5 12 4l8 6.5V20H4Z"/><path d="M9.5 20v-5.5h5V20"/></g>
+<g id="i-opzioni"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.2M12 19.3v2.2M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/></g>
+<g id="i-carne"><path d="M15.5 3.5A5.5 5.5 0 0 1 21 9c0 3-2.5 4.5-5 5l-6.5 6.5a3.2 3.2 0 0 1-4.5-4.5L11.5 9c.5-2.5 2-5.5 4-5.5Z"/><circle cx="15.5" cy="8.5" r="2"/></g>
+<g id="i-pasta"><path d="M4 9.5h16M5 9.5c0 5 3 9 7 9s7-4 7-9"/><path d="M8 4v5.5M12 3v6.5M16 4v5.5"/></g>
+<g id="i-uova"><path d="M12 3.5c3 0 5.5 4.5 5.5 8.5a5.5 5.5 0 0 1-11 0c0-4 2.5-8.5 5.5-8.5Z"/><circle cx="12" cy="13" r="2.5"/></g>
+<g id="i-formaggi"><path d="M3.5 12 14 5.5 20.5 9v8h-17Z"/><circle cx="8" cy="14" r="1.2"/><circle cx="14.5" cy="12.5" r="1.2"/></g>
+<g id="i-pesce"><path d="M3 12c3-4 7-6 11-6 3 0 5.5 2 6.5 6-1 4-3.5 6-6.5 6-4 0-8-2-11-6Z"/><path d="M16.5 12h.01"/><path d="M3 12c1.5 0 2.5-2 2.5-4M3 12c1.5 0 2.5 2 2.5 4"/></g>
+<g id="i-verdure"><path d="M12 21c-4 0-7-3-7-7 0-3.5 3-6 7-6s7 2.5 7 6c0 4-3 7-7 7Z"/><path d="M12 8c0-2.5 1.5-4.5 4-5-.5 2.5-1.5 4-4 5Z"/><path d="M12 12v6"/></g>
+<g id="i-riso"><path d="M4 13h16c0 4-3.5 7-8 7s-8-3-8-7Z"/><path d="M8 9.5c0-1 .8-1.8 1.8-1.8M12 8c0-1 .8-1.8 1.8-1.8M15.5 9.5c0-1 .8-1.8 1.8-1.8"/></g>
+<g id="i-legumi"><path d="M6.5 14a4 4 0 0 1 0-8c1 0 2 .4 2.7 1"/><path d="M14 18a4 4 0 0 1 0-8 4 4 0 0 1 0 8Z"/><path d="M17 9.5a4 4 0 1 0-4-4"/></g>
+<g id="i-patate"><path d="M8 5.5c4-2 10 0 11 5s-3 9-7.5 8.5S3 14 3.5 10.5 5 6.8 8 5.5Z"/><path d="M9 10h.01M13 12.5h.01M10.5 15h.01"/></g>
+<g id="i-fredde"><path d="M3.5 15.5c0-4 4-7 8.5-7s8.5 3 8.5 7Z"/><path d="M3.5 18.5h17"/><path d="M9 11.5v-3M13 11.5v-4"/></g>
+<g id="i-etnico"><path d="M4 11h16c0 4.5-3.5 8-8 8s-8-3.5-8-8Z"/><path d="M10 11c0-2 .5-4 2-5.5"/><path d="M20.5 6.5 17 10"/><path d="M18 4.5 16 7"/></g>
+<g id="i-forno"><path d="M3.5 6.5h17v13h-17Z"/><path d="M3.5 11h17"/><path d="M7 8.5h2M7 15h10"/></g>
+<g id="i-zuppe"><path d="M3.5 12h17c0 4.5-3.8 8-8.5 8s-8.5-3.5-8.5-8Z"/><path d="M9 8.5c0-1.5-1-2-1-3.5M12.5 8.5c0-1.5-1-2-1-3.5M16 8.5c0-1.5-1-2-1-3.5"/></g>
+<g id="i-pronte"><path d="m5 12.5 4.5 4.5L19 7.5"/></g>
+<g id="i-stagione"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2.5 12H5M19 12h2.5M4.2 19.8 6 18M18 6l1.8-1.8"/></g>
+<g id="i-veloci"><path d="M13 2.5 4.5 13.5H11l-1 8 8.5-11H12Z"/></g>
+<g id="i-pref"><path d="m12 3.5 2.7 5.6 6.1.8-4.5 4.3 1.2 6.1-5.5-3-5.5 3 1.2-6.1-4.5-4.3 6.1-.8Z"/></g>
+<g id="i-ff"><circle cx="12" cy="12" r="8.5"/><path d="M12 6.5a5.5 5.5 0 0 1 0 11"/><circle cx="12" cy="12" r="2"/></g>
+<g id="i-cestino"><path d="M4.5 6.5h15M9.5 6.5V4h5v2.5M6.5 6.5 7.5 21h9l1-14.5"/><path d="M10 10.5v6.5M14 10.5v6.5"/></g>
+<g id="i-piu"><path d="M12 5v14M5 12h14"/></g>
+<g id="i-caseificio"><path d="M3.5 12 14 5.5 20.5 9v8h-17Z"/><circle cx="8" cy="14" r="1.2"/><circle cx="14.5" cy="12.5" r="1.2"/></g>
+<g id="i-macellaio"><path d="M15.5 3.5A5.5 5.5 0 0 1 21 9c0 3-2.5 4.5-5 5l-6.5 6.5a3.2 3.2 0 0 1-4.5-4.5L11.5 9c.5-2.5 2-5.5 4-5.5Z"/></g>
+<g id="i-panificio"><path d="M4.5 9.5c0-2.5 3.3-4 7.5-4s7.5 1.5 7.5 4v6c0 2.2-3.3 3.5-7.5 3.5S4.5 17.7 4.5 15.5Z"/><path d="M9 6.5v11M15 6.5v11"/></g>
+<g id="i-pescheria"><path d="M3 12c3-4 7-6 11-6 3 0 5.5 2 6.5 6-1 4-3.5 6-6.5 6-4 0-8-2-11-6Z"/><path d="M16.5 12h.01"/></g>
+<g id="i-bucato"><path d="M5.5 8h13l-1 12.5h-11Z"/><path d="M5.5 8 7 3.5h10L18.5 8"/><path d="M9 12c2 1.5 4 1.5 6 0"/></g>
+<g id="i-letto"><path d="M3 18v-7.5h18V18"/><path d="M3 14h18"/><path d="M6.5 10.5V7h11v3.5"/><path d="M3 18v2M21 18v2"/></g>
+<g id="i-bagno"><path d="M4 12.5h16v2A5.5 5.5 0 0 1 14.5 20h-5A5.5 5.5 0 0 1 4 14.5Z"/><path d="M7 12.5V6a2.5 2.5 0 0 1 5 0"/><path d="M8 20v1.5M16 20v1.5"/></g>
+<g id="i-pulizia"><path d="m13.5 3.5 7 7-9 9-7-7Z"/><path d="M9.5 7.5 16 14"/><path d="M4.5 19.5H2"/></g>
+<g id="i-frigo"><path d="M6 3.5h12v17H6Z"/><path d="M6 10h12"/><path d="M9 6.5v2M9 13v2.5"/></g>
+<g id="i-aria"><path d="M3 8.5h11a3 3 0 1 0-3-3"/><path d="M3 13h15a3 3 0 1 1-3 3"/><path d="M3 17.5h7"/></g>
+<g id="i-tempo"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5.5l3.5 2"/></g>
+<g id="i-riciclo"><path d="M7 8 4.5 12.5l2 3.5"/><path d="m12 4 2.5 4.5H9.5Z"/><path d="M17 8.5 19.5 13 17 17"/><path d="M6.5 16h11"/></g>
+<g id="i-avanzo"><path d="M4 11h16c0 4.5-3.5 8-8 8s-8-3.5-8-8Z"/><path d="M12 7.5c0-1.5-1.5-2-1.5-3.5"/><path d="M2.5 20.5h19"/></g>
+<g id="i-stella"><path d="m12 3.5 2.7 5.6 6.1.8-4.5 4.3 1.2 6.1-5.5-3-5.5 3 1.2-6.1-4.5-4.3 6.1-.8Z"/></g>
+<g id="i-indietro"><path d="M9 5.5 3.5 11 9 16.5"/><path d="M3.5 11h11a6 6 0 0 1 0 12"/></g>
+</defs></svg>
 
-  <main id="app" tabindex="-1"></main>
+<div class="top">
+  <div class="marchio">
+    <img src="marchio.svg" alt="" width="40" height="32"><img class="logotipo" src="logotipo.svg" alt="Speso" width="92" height="30">
+    <div>
+      <div class="oggi" id="dataOggi">—</div>
+      <h1 id="titolo">Stasera</h1>
+    </div>
+  </div>
+  <button class="reset" id="btnImpostazioni">Opzioni</button>
+</div>
 
-  <nav class="bottom-nav" aria-label="Navigazione principale">
-    <button type="button" data-view="scelte">
-      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3h12v18H6zM9 3V1m6 2V1M9 8h6m-6 4h6m-6 4h4"/></svg>
-      <span>Scelte</span>
-    </button>
-    <button type="button" data-view="ricette">
-      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 4.5A3.5 3.5 0 0 1 7.5 1H11v19H7.5A3.5 3.5 0 0 0 4 23zM20 4.5A3.5 3.5 0 0 0 16.5 1H13v19h3.5A3.5 3.5 0 0 1 20 23z"/></svg>
-      <span>Ricette</span>
-    </button>
-    <button type="button" data-view="spesa">
-      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 4h2l2.2 10.2a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 2-1.6L21 7H6m4 13a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm9 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg>
-      <span>Spesa</span>
-      <span class="nav-count" id="bottomCount" hidden></span>
-    </button>
-  </nav>
+<div id="vistaStasera" class="vista attiva"></div>
+<div id="vistaLista" class="vista"></div>
+<div id="vistaDispensa" class="vista"></div>
+<div id="vistaCene" class="vista"></div>
+<div id="vistaCasa" class="vista"></div>
 
-  <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
-  <aside class="drawer" id="drawer" aria-label="Pannello" aria-hidden="true"></aside>
-  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<nav>
+  <button data-v="stasera" class="on"><svg class="tratto" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-stasera"/></svg><span class="et">Stasera</span></button>
+  <button data-v="lista"><svg class="tratto" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-lista"/></svg><span class="et">Lista</span><span class="pallino" id="pallinoLista" hidden></span></button>
+  <button data-v="dispensa"><svg class="tratto" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-dispensa"/></svg><span class="et">Dispensa</span></button>
+  <button data-v="cene"><svg class="tratto" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cene"/></svg><span class="et">Cene</span></button>
+  <button data-v="casa"><svg class="tratto" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-casa"/></svg><span class="et">Casa</span><span class="pallino" id="pallinoCasa" hidden></span></button>
+  <button data-v="cene" id="btnPreferiti"><svg class="tratto" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-pref"/></svg><span class="et">Preferiti</span></button>
+  <button class="voceOpzioni" id="btnOpzioniLato"><svg class="tratto" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-opzioni"/></svg><span class="et">Opzioni</span></button>
+</nav>
 
-  <script type="module" src="src/app.js?v=11"></script>
+<div class="velo" id="velo"></div>
+<div class="foglio" id="foglio"></div>
+
+<script>
+/* ============ DATI ============ */
+const GIORNI=['dom','lun','mar','mer','gio','ven','sab'];
+const NOMI_GG={lun:'Lunedì',mar:'Martedì',mer:'Mercoledì',gio:'Giovedì',ven:'Venerdì',sab:'Sabato',dom:'Domenica'};
+const FUORI=[];
+
+/* data in formato AAAA-MM-GG secondo il calendario locale.
+   toISOString() userebbe UTC e in Italia sposterebbe indietro di un giorno. */
+const isoLocale=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+
+/* Tutto ciò che scrive l'utente (nomi di prodotti, ricette, faccende, ricerche)
+   finisce dentro innerHTML: va neutralizzato, o diventa codice eseguibile.
+   Vale anche per i dati che arrivano dalla sincronizzazione. */
+const SEGNI={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,ch=>SEGNI[ch]);
+
+/* dispensa: id, nome, reparto, categoria, durata in giorni (0 = non deperibile) */
+const PRODOTTI=[
+ {id:'mozzarella',n:'Mozzarella',r:'Caseificio',c:'giorno',d:2},
+ {id:'burrata',n:'Burrata',r:'Caseificio',c:'giorno',d:1},
+ {id:'stracciatella',n:'Stracciatella',r:'Caseificio',c:'giorno',d:1},
+ {id:'ricotta',n:'Ricotta',r:'Caseificio',c:'giorno',d:2},
+ {id:'nodini',n:'Nodini / bocconcini',r:'Caseificio',c:'giorno',d:2},
+ {id:'fettine',n:'Fettine di vitello',r:'Macellaio',c:'giorno',d:1},
+ {id:'salsiccia',n:'Salsiccia',r:'Macellaio',c:'giorno',d:1},
+ {id:'braciole',n:'Braciole di maiale',r:'Macellaio',c:'giorno',d:1},
+ {id:'bombette',n:'Bombette',r:'Macellaio',c:'giorno',d:1},
+ {id:'macinato',n:'Macinato',r:'Macellaio',c:'giorno',d:1},
+ {id:'pollo',n:'Petto di pollo',r:'Macellaio',c:'giorno',d:1},
+ {id:'cosce',n:'Cosce e alette di pollo',r:'Macellaio',c:'giorno',d:1},
+ {id:'tacchino',n:'Fesa di tacchino',r:'Macellaio',c:'giorno',d:1},
+ {id:'spezzatino',n:'Spezzatino',r:'Macellaio',c:'giorno',d:1},
+ {id:'agnello',n:'Agnello',r:'Macellaio',c:'giorno',d:1},
+ {id:'coniglio',n:'Coniglio',r:'Macellaio',c:'giorno',d:1},
+ {id:'involtini',n:'Involtini',r:'Macellaio',c:'giorno',d:1},
+ {id:'costine',n:'Costine di maiale',r:'Macellaio',c:'giorno',d:1},
+ {id:'fegato',n:'Fegato',r:'Macellaio',c:'giorno',d:1},
+ {id:'orata',n:'Orata / spigola',r:'Pescheria',c:'giorno',d:1},
+ {id:'cozze',n:'Cozze',r:'Pescheria',c:'giorno',d:1},
+ {id:'gamberi',n:'Gamberi freschi',r:'Pescheria',c:'giorno',d:1},
+ {id:'calamari',n:'Calamari',r:'Pescheria',c:'giorno',d:1},
+ {id:'polpo',n:'Polpo',r:'Pescheria',c:'giorno',d:1},
+ {id:'seppie',n:'Seppie',r:'Pescheria',c:'giorno',d:1},
+ {id:'focaccia',n:'Focaccia barese',r:'Panificio',c:'giorno',d:1},
+
+ {id:'uova',n:'Uova',r:'Frigo',c:'frigo',d:21},
+ {id:'caciocavallo',n:'Caciocavallo',r:'Frigo',c:'frigo',d:25},
+ {id:'scamorza',n:'Scamorza',r:'Frigo',c:'frigo',d:18},
+ {id:'provola',n:'Provola',r:'Frigo',c:'frigo',d:14},
+ {id:'pecorino',n:'Pecorino',r:'Frigo',c:'frigo',d:35},
+ {id:'grana',n:'Grana grattugiato',r:'Frigo',c:'frigo',d:40},
+ {id:'gorgonzola',n:'Gorgonzola',r:'Frigo',c:'frigo',d:14},
+ {id:'brie',n:'Brie / formaggio molle',r:'Frigo',c:'frigo',d:14},
+ {id:'feta',n:'Feta',r:'Frigo',c:'frigo',d:20},
+ {id:'ricottaforte',n:'Ricotta forte',r:'Frigo',c:'frigo',d:60},
+ {id:'capocollo',n:'Capocollo di Martina',r:'Frigo',c:'frigo',d:14},
+ {id:'crudo',n:'Prosciutto crudo',r:'Frigo',c:'frigo',d:10},
+ {id:'cotto',n:'Prosciutto cotto',r:'Frigo',c:'frigo',d:8},
+ {id:'mortadella',n:'Mortadella',r:'Frigo',c:'frigo',d:8},
+ {id:'salame',n:'Salame',r:'Frigo',c:'frigo',d:20},
+ {id:'speck',n:'Speck',r:'Frigo',c:'frigo',d:15},
+ {id:'pancetta',n:'Pancetta / guanciale',r:'Frigo',c:'frigo',d:20},
+ {id:'wurstel',n:'Würstel',r:'Frigo',c:'frigo',d:20},
+ {id:'burro',n:'Burro',r:'Frigo',c:'frigo',d:30},
+ {id:'panna',n:'Panna da cucina',r:'Frigo',c:'frigo',d:30},
+ {id:'latte',n:'Latte a lunga conservazione',r:'Frigo',c:'frigo',d:0},
+ {id:'yogurt',n:'Yogurt (colazione)',r:'Frigo',c:'frigo',d:14},
+
+ {id:'cipolle',n:'Cipolle',r:'Verdura',c:'verdura',d:25},
+ {id:'patate',n:'Patate',r:'Verdura',c:'verdura',d:25},
+ {id:'aglio',n:'Aglio',r:'Verdura',c:'verdura',d:30},
+ {id:'limoni',n:'Limoni',r:'Verdura',c:'verdura',d:18,st:[11,6]},
+ {id:'pomodori',n:'Pomodori da insalata',r:'Verdura',c:'verdura',d:5,st:[5,10]},
+ {id:'pomodorini',n:'Pomodorini',r:'Verdura',c:'verdura',d:6,st:[5,10]},
+ {id:'zucchine',n:'Zucchine',r:'Verdura',c:'verdura',d:7,st:[4,10]},
+ {id:'peperoni',n:'Peperoni',r:'Verdura',c:'verdura',d:8,st:[6,10]},
+ {id:'insalata',n:'Insalata a cespo',r:'Verdura',c:'verdura',d:5},
+ {id:'rucola',n:'Rucola',r:'Verdura',c:'verdura',d:4},
+ {id:'radicchio',n:'Radicchio',r:'Verdura',c:'verdura',d:7,st:[9,3]},
+ {id:'carote',n:'Carote',r:'Verdura',c:'verdura',d:18},
+ {id:'sedano',n:'Sedano',r:'Verdura',c:'verdura',d:10},
+ {id:'funghi',n:'Funghi champignon',r:'Verdura',c:'verdura',d:5,st:[9,2]},
+ {id:'cicoria',n:'Cicoria',r:'Verdura',c:'verdura',d:5,st:[10,5]},
+ {id:'broccoli',n:'Broccoli',r:'Verdura',c:'verdura',d:7,st:[10,4]},
+ {id:'cavolfiore',n:'Cavolfiore',r:'Verdura',c:'verdura',d:9,st:[10,4]},
+ {id:'verza',n:'Verza',r:'Verdura',c:'verdura',d:12,st:[10,4]},
+ {id:'finocchi',n:'Finocchi',r:'Verdura',c:'verdura',d:9,st:[10,5]},
+ {id:'carciofi',n:'Carciofi',r:'Verdura',c:'verdura',d:6,st:[11,5]},
+ {id:'spinaci',n:'Spinaci',r:'Verdura',c:'verdura',d:4,st:[10,5]},
+ {id:'fagiolini',n:'Fagiolini',r:'Verdura',c:'verdura',d:6,st:[6,9]},
+ {id:'asparagi',n:'Asparagi',r:'Verdura',c:'verdura',d:5,st:[3,6]},
+ {id:'zucca',n:'Zucca',r:'Verdura',c:'verdura',d:20,st:[9,1]},
+ {id:'cetrioli',n:'Cetrioli',r:'Verdura',c:'verdura',d:8,st:[5,9]},
+ {id:'porri',n:'Porri',r:'Verdura',c:'verdura',d:12,st:[9,4]},
+ {id:'basilico',n:'Basilico',r:'Verdura',c:'verdura',d:5,st:[5,9]},
+ {id:'prezzemolo',n:'Prezzemolo',r:'Verdura',c:'verdura',d:6},
+ {id:'menta',n:'Menta',r:'Verdura',c:'verdura',d:6,st:[4,10]},
+
+ {id:'pane',n:'Pane di Altamura',r:'Pane',c:'dispensa',d:6},
+ {id:'friselle',n:'Friselle',r:'Pane',c:'dispensa',d:0},
+ {id:'taralli',n:'Taralli',r:'Pane',c:'dispensa',d:0},
+ {id:'piadina',n:'Piadine',r:'Pane',c:'dispensa',d:30},
+ {id:'basepizza',n:'Basi per pizza',r:'Pane',c:'dispensa',d:20},
+
+ {id:'pasta',n:'Pasta corta',r:'Dispensa',c:'dispensa',d:0},
+ {id:'spaghetti',n:'Spaghetti',r:'Dispensa',c:'dispensa',d:0},
+ {id:'orecchiette',n:'Orecchiette',r:'Dispensa',c:'dispensa',d:0},
+ {id:'riso',n:'Riso',r:'Dispensa',c:'dispensa',d:0},
+ {id:'farro',n:'Farro',r:'Dispensa',c:'dispensa',d:0},
+ {id:'olio',n:'Olio EVO',r:'Dispensa',c:'dispensa',d:0},
+ {id:'passata',n:'Passata di pomodoro',r:'Dispensa',c:'dispensa',d:0},
+ {id:'pelati',n:'Pelati',r:'Dispensa',c:'dispensa',d:0},
+ {id:'concentrato',n:'Concentrato di pomodoro',r:'Dispensa',c:'dispensa',d:0},
+ {id:'fagioli',n:'Fagioli in barattolo',r:'Dispensa',c:'dispensa',d:0},
+ {id:'cannellini',n:'Cannellini',r:'Dispensa',c:'dispensa',d:0},
+ {id:'ceci',n:'Ceci in barattolo',r:'Dispensa',c:'dispensa',d:0},
+ {id:'lenticchie',n:'Lenticchie',r:'Dispensa',c:'dispensa',d:0},
+ {id:'fave',n:'Fave secche',r:'Dispensa',c:'dispensa',d:0,st:[3,6]},
+ {id:'piselli',n:'Piselli in barattolo',r:'Dispensa',c:'dispensa',d:0},
+ {id:'mais',n:'Mais',r:'Dispensa',c:'dispensa',d:0},
+ {id:'olive',n:'Olive',r:'Dispensa',c:'dispensa',d:0},
+ {id:'capperi',n:'Capperi',r:'Dispensa',c:'dispensa',d:0},
+ {id:'sottolio',n:'Verdure sott\'olio',r:'Dispensa',c:'dispensa',d:0},
+ {id:'funghisecchi',n:'Funghi secchi',r:'Dispensa',c:'dispensa',d:0},
+ {id:'pangrattato',n:'Pangrattato',r:'Dispensa',c:'dispensa',d:0},
+ {id:'noci',n:'Noci e pinoli',r:'Dispensa',c:'dispensa',d:0},
+ {id:'uvetta',n:'Uvetta',r:'Dispensa',c:'dispensa',d:0},
+ {id:'origano',n:'Origano',r:'Dispensa',c:'dispensa',d:0},
+ {id:'rosmarino',n:'Rosmarino',r:'Dispensa',c:'dispensa',d:0},
+ {id:'salvia',n:'Salvia e alloro',r:'Dispensa',c:'dispensa',d:0},
+ {id:'peperoncino',n:'Peperoncino',r:'Dispensa',c:'dispensa',d:0},
+ {id:'sale',n:'Sale',r:'Dispensa',c:'dispensa',d:0},
+ {id:'pepe',n:'Pepe',r:'Dispensa',c:'dispensa',d:0},
+ {id:'aceto',n:'Aceto',r:'Dispensa',c:'dispensa',d:0},
+ {id:'vinobianco',n:'Vino bianco da cucina',r:'Dispensa',c:'dispensa',d:0},
+ {id:'senape',n:'Senape',r:'Dispensa',c:'dispensa',d:0},
+ {id:'maionese',n:'Maionese',r:'Dispensa',c:'dispensa',d:0},
+ {id:'dado',n:'Dado / brodo granulare',r:'Dispensa',c:'dispensa',d:0},
+ {id:'farina',n:'Farina',r:'Dispensa',c:'dispensa',d:0},
+ {id:'zucchero',n:'Zucchero',r:'Dispensa',c:'dispensa',d:0},
+ {id:'caffe',n:'Caffè',r:'Dispensa',c:'dispensa',d:0},
+ {id:'cioccolato',n:'Cioccolato',r:'Dispensa',c:'dispensa',d:0},
+ {id:'fruttasecca',n:'Frutta secca',r:'Dispensa',c:'dispensa',d:0},
+ {id:'acqua',n:'Acqua (cassa)',r:'Dispensa',c:'dispensa',d:0},
+ {id:'birra',n:'Birra',r:'Dispensa',c:'dispensa',d:0},
+ {id:'vino',n:'Vino',r:'Dispensa',c:'dispensa',d:0},
+
+ {id:'lavatrice',n:'Detersivo lavatrice',r:'Casa',c:'casa',d:0},
+ {id:'ammorbidente',n:'Ammorbidente',r:'Casa',c:'casa',d:0},
+ {id:'piatti',n:'Detersivo piatti / pastiglie',r:'Casa',c:'casa',d:0},
+ {id:'sgrassatore',n:'Sgrassatore',r:'Casa',c:'casa',d:0},
+ {id:'anticalcare',n:'Anticalcare bagno',r:'Casa',c:'casa',d:0},
+ {id:'candeggina',n:'Candeggina',r:'Casa',c:'casa',d:0},
+ {id:'pavimenti',n:'Detersivo pavimenti',r:'Casa',c:'casa',d:0},
+ {id:'vetri',n:'Detergente vetri',r:'Casa',c:'casa',d:0},
+ {id:'spugne',n:'Spugne e panni',r:'Casa',c:'casa',d:0},
+ {id:'sacchi',n:'Sacchi spazzatura',r:'Casa',c:'casa',d:0},
+ {id:'rotoloni',n:'Carta assorbente',r:'Casa',c:'casa',d:0},
+ {id:'pellicola',n:'Pellicola e alluminio',r:'Casa',c:'casa',d:0},
+ {id:'cartaforno',n:'Carta forno',r:'Casa',c:'casa',d:0},
+ {id:'sacchettigelo',n:'Sacchetti gelo',r:'Casa',c:'casa',d:0},
+ {id:'lampadine',n:'Lampadine di scorta',r:'Casa',c:'casa',d:0},
+ {id:'pile',n:'Pile',r:'Casa',c:'casa',d:0},
+
+ {id:'cartaigienica',n:'Carta igienica',r:'Igiene',c:'casa',d:0},
+ {id:'bagnoschiuma',n:'Bagnoschiuma',r:'Igiene',c:'casa',d:0},
+ {id:'shampoo',n:'Shampoo',r:'Igiene',c:'casa',d:0},
+ {id:'dentifricio',n:'Dentifricio',r:'Igiene',c:'casa',d:0},
+ {id:'spazzolino',n:'Spazzolino',r:'Igiene',c:'casa',d:0},
+ {id:'deodorante',n:'Deodorante',r:'Igiene',c:'casa',d:0},
+ {id:'lamette',n:'Lamette / schiuma da barba',r:'Igiene',c:'casa',d:0},
+ {id:'fazzoletti',n:'Fazzoletti',r:'Igiene',c:'casa',d:0},
+ {id:'cerotti',n:'Cerotti',r:'Igiene',c:'casa',d:0},
+ {id:'tachipirina',n:'Tachipirina / ibuprofene',r:'Igiene',c:'casa',d:0},
+ {id:'noodles',n:'Noodles / spaghetti di riso',r:'Etnico',c:'dispensa',d:0},
+ {id:'ramen',n:'Ramen istantaneo',r:'Etnico',c:'dispensa',d:0},
+ {id:'udon',n:'Udon',r:'Etnico',c:'dispensa',d:0},
+ {id:'soia',n:'Salsa di soia',r:'Etnico',c:'dispensa',d:0},
+ {id:'teriyaki',n:'Salsa teriyaki',r:'Etnico',c:'dispensa',d:0},
+ {id:'ostrica',n:'Salsa di ostriche',r:'Etnico',c:'dispensa',d:0},
+ {id:'sriracha',n:'Sriracha / peperoncino asiatico',r:'Etnico',c:'dispensa',d:0},
+ {id:'sesamo',n:'Olio di sesamo',r:'Etnico',c:'dispensa',d:0},
+ {id:'semisesamo',n:'Semi di sesamo',r:'Etnico',c:'dispensa',d:0},
+ {id:'zenzero',n:'Zenzero',r:'Etnico',c:'dispensa',d:30},
+ {id:'currypasta',n:'Pasta di curry',r:'Etnico',c:'dispensa',d:0},
+ {id:'curry',n:'Curry in polvere',r:'Etnico',c:'dispensa',d:0},
+ {id:'lattecocco',n:'Latte di cocco',r:'Etnico',c:'dispensa',d:0},
+ {id:'basmati',n:'Riso basmati / jasmine',r:'Etnico',c:'dispensa',d:0},
+ {id:'risosushi',n:'Riso per sushi',r:'Etnico',c:'dispensa',d:0},
+ {id:'alga',n:'Alga nori',r:'Etnico',c:'dispensa',d:0},
+ {id:'wasabi',n:'Wasabi',r:'Etnico',c:'dispensa',d:0},
+ {id:'tofu',n:'Tofu',r:'Etnico',c:'frigo',d:14},
+ {id:'edamame',n:'Edamame',r:'Etnico',c:'dispensa',d:0},
+ {id:'germogli',n:'Germogli di soia',r:'Etnico',c:'frigo',d:5},
+ {id:'gyoza',n:'Gyoza',r:'Etnico',c:'frigo',d:20},
+ {id:'involtiniprimavera',n:'Involtini primavera',r:'Etnico',c:'frigo',d:20},
+ {id:'tortillas',n:'Tortillas',r:'Etnico',c:'dispensa',d:60},
+ {id:'nachos',n:'Nachos',r:'Etnico',c:'dispensa',d:0},
+ {id:'fagiolineri',n:'Fagioli neri',r:'Etnico',c:'dispensa',d:0},
+ {id:'guacamole',n:'Avocado',r:'Etnico',c:'verdura',d:5},
+ {id:'salsataco',n:'Salsa taco / chili',r:'Etnico',c:'dispensa',d:0},
+ {id:'paprika',n:'Paprika',r:'Etnico',c:'dispensa',d:0},
+ {id:'cumino',n:'Cumino',r:'Etnico',c:'dispensa',d:0},
+ {id:'hummuspronto',n:'Hummus pronto',r:'Etnico',c:'frigo',d:10},
+ {id:'yogurtgreco',n:'Yogurt greco',r:'Etnico',c:'frigo',d:14},
+ {id:'lime',n:'Lime',r:'Etnico',c:'verdura',d:15},
+ {id:'arachidi',n:'Arachidi / burro di arachidi',r:'Etnico',c:'dispensa',d:0},
+ {id:'coriandolo',n:'Coriandolo',r:'Etnico',c:'verdura',d:5,st:[4,10]}
+];
+const PROC={
+e01:"Affetta le cipolle sottili e stufale in padella con olio a fuoco basso per 15 minuti finché sono dolci. Sbatti le uova con sale, versa, cuoci 3 minuti per lato.",
+e02:"Taglia le patate a fette sottili e falle appassire in padella con olio 12 minuti. Unisci le uova sbattute, cuoci coperto a fuoco basso, gira con un piatto.",
+e03:"Rosola le zucchine a rondelle 8 minuti. Sbatti le uova col grana, versa, cuoci 3 minuti per lato.",
+e04:"Spadella i peperoni a strisce 12 minuti finché cedono. Aggiungi le uova sbattute e chiudi la frittata girandola una volta.",
+e05:"Lessa gli asparagi 5 minuti, taglia a pezzi, salta in padella. Unisci uova e grana, cuoci a fuoco basso.",
+e06:"Trifola i funghi a fette con olio 8 minuti finché perdono l'acqua. Aggiungi prezzemolo, poi le uova sbattute.",
+e07:"Fai appassire gli spinaci in padella, strizzali. Mescola con uova e ricotta, cuoci in padella a fuoco basso 8 minuti.",
+e08:"Mescola la pasta avanzata con uova sbattute e grana. Versa in padella calda unta e schiaccia. Cuoci 5 minuti per lato finché fa la crosta.",
+e09:"Sbatti le uova, versa in padella, quando rapprende metti cotto e scamorza su metà e chiudi a libro.",
+e10:"Pulisci i carciofi, affettali e cuocili in padella con acqua e olio 15 minuti. Unisci uova e grana.",
+e11:"Scalda la passata in padella con aglio e olio 8 minuti. Rompi le uova dentro, copri e cuoci 4 minuti. Pane per pucciare.",
+e12:"Fai scoppiare i pomodorini in padella 5 minuti. Versa le uova sbattute e mescola continuamente finché sono cremose.",
+e13:"Rosola la salsiccia a pezzi 10 minuti. Rompi le uova nella stessa padella, copri e cuoci 4 minuti.",
+e14:"Uova sbattute in padella, quando è quasi rappresa metti cotto e formaggio su metà, piega e servi.",
+e15:"Trifola i funghi, tienili da parte. Fai l'omelette, farcisci con funghi e grana, piega.",
+e16:"Uova in acqua bollente 9 minuti, patate lesse 20. Taglia tutto, condisci con cipolla cruda, olio, sale.",
+e17:"Ungi una pirofila che entri nel cestello, rompi le uova, aggiungi pomodorini e grana. 180 gradi per 8 minuti.",
+e18:"Acqua a sfiorare il bollore con un goccio d'aceto, fai un vortice, cala l'uovo, 3 minuti. Servi su pane tostato con pepe.",
+e19:"Peperoni a strisce in padella con cipolla 15 minuti. Rompi le uova dentro e cuoci coperto.",
+e20:"Porri a rondelle e patate a cubetti in padella 20 minuti. Unisci le uova e completa la frittata.",
+
+f01:"Fette spesse di caciocavallo in padella antiaderente senza grassi, 2 minuti per lato finché fa la crosticina. Servi su pane con origano.",
+f02:"Arrostisci i peperoni in padella 15 minuti. Metti sopra le fette di provola e copri finché fila.",
+f03:"Patate a spicchi in friggitrice 20 minuti a 200 gradi. Ultimi 5 minuti aggiungi la scamorza a cubetti.",
+f04:"Fette di pane con mozzarella in mezzo, passa nella farina, poi nell'uovo sbattuto, friggi in poco olio 2 minuti per lato.",
+f05:"Apri la burrata su un piatto, pomodori a spicchi intorno, olio, sale. Focaccia a fianco.",
+f06:"Taglia i pomodorini a metà, condisci con olio e sale, adagia sopra la stracciatella.",
+f07:"Alterna fette di mozzarella e pomodoro, olio, sale, origano. Riposare 5 minuti prima di mangiare.",
+f08:"Ricotta in una ciotola, olio a filo, pepe macinato grosso, sale. Pane a fianco.",
+f09:"Nodini spezzati a mano su un letto di rucola, crudo sopra, olio e pepe.",
+f10:"Schiaccia il gorgonzola sul pane tostato, noci spezzate sopra, un giro di pepe.",
+f11:"Brie intero in pirofila, noci sopra, 15 minuti a 180 gradi finché si scioglie. Pane per raccogliere.",
+f12:"Feta a cubetti, pomodori a spicchi, olive, olio e origano. Mescola e lascia insaporire.",
+f13:"Affetta capocollo e pecorino, disponi con olive e pane. Niente da cuocere.",
+f14:"Spalma la ricotta forte sul pane, pomodoro a fette sopra, olio.",
+f15:"Griglia la scamorza a fette in padella. Servi su radicchio condito con aceto.",
+
+c01:"Scalda bene la padella con olio, fettina 90 secondi per lato, sale a fine cottura, succo di limone. Non stracuocere.",
+c02:"Passa la fettina nell'uovo sbattuto poi nel pangrattato premendo bene. Padella con olio, 3 minuti per lato.",
+c03:"Rosola la fettina 1 minuto per lato, aggiungi passata e origano, cuoci coperto 15 minuti.",
+c04:"Salsiccia a pezzi e patate a spicchi nel cestello, 200 gradi per 25 minuti, scuoti a metà.",
+c05:"Lessa la cicoria 10 minuti, strizza. Rosola la salsiccia, unisci la cicoria con aglio e peperoncino.",
+c06:"Peperoni e cipolla in padella 10 minuti, aggiungi la salsiccia a pezzi, cuoci coperto altri 15.",
+c07:"Bombette in padella antiaderente a fuoco medio, 15 minuti girandole spesso finché il formaggio dentro si scioglie.",
+c08:"Rosola le braciole in olio, sfuma, copri di passata e cuoci a fuoco bassissimo 40 minuti. Il sugo condisce anche la pasta.",
+c09:"Arrotola gli involtini, rosolali, poi passata e cottura lenta 45 minuti coperto.",
+c10:"Impasta il macinato con sale e pepe senza lavorarlo troppo, forma il disco, padella rovente 4 minuti per lato.",
+c11:"Impasta macinato, uovo, pangrattato, sale. Forma le polpette, rosolale, poi 30 minuti nel sugo. Il giorno dopo sono migliori.",
+c12:"Polpette e patate a spicchi in teglia o friggitrice, 200 gradi per 30 minuti.",
+c13:"Stendi il macinato impastato, metti al centro le uova sode, arrotola. Forno 180 gradi per 50 minuti.",
+c14:"Soffritto di carota sedano cipolla 10 minuti, aggiungi il macinato e rosola, poi passata e 25 minuti di fuoco basso.",
+c15:"Petto a fette nel cestello con olio, limone e origano. 190 gradi per 15 minuti, gira a metà.",
+c16:"Rosola le cosce, sfuma, aggiungi passata, olive e rosmarino, cuoci coperto 40 minuti.",
+c17:"Alette asciugate bene, olio e peperoncino, friggitrice 200 gradi per 22 minuti scuotendo due volte.",
+c18:"Pollo a fette sottili, uovo e pangrattato, padella con olio 3 minuti per lato.",
+c19:"Pollo a striscioline rosolato 5 minuti, togli. Peperoni e cipolla 12 minuti, rimetti il pollo.",
+c20:"Straccetti in padella rovente 3 minuti, spegni, aggiungi rucola, limone e scaglie di grana.",
+c21:"Infarina le fettine, rosola nel burro, sfuma col vino bianco e fai addensare 3 minuti.",
+c22:"Su ogni fettina una fetta di crudo e una foglia di salvia, ferma con stuzzicadenti. Burro, 3 minuti per lato.",
+c23:"Rosola la carne a cubetti su fuoco alto, poi carote e passata, coperto a fuoco basso 60 minuti. Patate negli ultimi 20.",
+c24:"Rosola lo spezzatino con cipolla, passata e acqua, 55 minuti. Piselli negli ultimi 15.",
+c25:"Costine in teglia con patate e rosmarino, 180 gradi per 55 minuti, ultimi 10 a 210 per la crosta.",
+c26:"Agnello a pezzi con patate, rosmarino, olio e vino in teglia. 180 gradi per 65 minuti.",
+c27:"Rosola il coniglio, sfuma col vino, aggiungi olive e rosmarino, coperto 50 minuti.",
+c28:"Cipolle stufate 15 minuti, alza la fiamma, fegato 3 minuti per lato, sfuma col vino. Sale solo alla fine.",
+c29:"Würstel incisi e patate a spicchi in friggitrice, 190 gradi per 18 minuti.",
+c30:"Alterna carne, peperoni e cipolla sugli stecchi. Padella rovente, 4 minuti per lato.",
+
+p01:"Aglio a fette in olio freddo con peperoncino, scalda piano senza bruciare. Scola la pasta al dente, salta in padella con un mestolo di acqua di cottura.",
+p02:"Passata in padella con olio e aglio 12 minuti. Basilico a fine cottura, grana al piatto.",
+p03:"Olio, aglio, peperoncino, poi pelati schiacciati, olive e capperi. 15 minuti di fuoco vivace.",
+p04:"Pecorino grattugiato con pepe e acqua di cottura fredda fino a fare la crema. Manteca fuori dal fuoco.",
+p05:"Guanciale croccante in padella. Tuorli con pecorino e pepe. Pasta scolata nel guanciale, poi fuori dal fuoco con le uova.",
+p06:"Come la carbonara ma senza uova: guanciale croccante, acqua di cottura, pecorino, mantecatura energica.",
+p07:"Guanciale rosolato, sfuma, aggiungi pelati e cuoci 15 minuti. Pecorino alla fine.",
+p08:"Patate a cubetti in padella con olio e cipolla, aggiungi acqua e cuoci la pasta dentro. Provola a cubetti fuori dal fuoco.",
+p09:"Ceci con aglio e rosmarino in padella, frulla metà per cremosità, cuoci la pasta nello stesso tegame.",
+p10:"Soffritto, fagioli con la loro acqua, schiaccia una parte, cuoci la pasta dentro aggiungendo acqua calda.",
+p11:"Lenticchie con soffritto 25 minuti, poi butta la pasta direttamente nel tegame.",
+p12:"Zucchine a rondelle rosolate finché dorate, pasta scolata, provola a cubetti e acqua di cottura.",
+p13:"Funghi trifolati 10 minuti, panna e prezzemolo, salta la pasta dentro.",
+p14:"Pomodorini scoppiati in padella, pasta saltata, stracciatella a crudo sul piatto e basilico.",
+p15:"Frulla rucola, noci, grana e olio. Non cuocere: diluisci col l'acqua di cottura e condisci.",
+p16:"Pasta lessata a metà cottura, condita col sugo, strati con mozzarella e grana. 200 gradi per 25 minuti.",
+p17:"Broccoli lessati nella stessa acqua della pasta, poi ripassati con aglio e peperoncino, unisci le orecchiette.",
+p18:"Il sugo di braciole cotto lento 2 ore condisce le orecchiette, pecorino sopra, carne come secondo.",
+p19:"Cavolfiore lessato e ripassato, pangrattato tostato in padella con uvetta sopra la pasta.",
+p20:"Zucchine a rondelle fritte, sugo di pomodoro, pasta, ricotta salata grattugiata sopra.",
+p21:"Salsiccia sbriciolata rosolata, pomodorini, 12 minuti, salta la pasta dentro.",
+p22:"Speck croccante, radicchio appassito, panna, manteca la pasta.",
+p23:"Pomodorini crudi a pezzetti con olio, sale e basilico, riposo 30 minuti. Pasta calda e mozzarella a cubetti.",
+p24:"Pancetta e cipolla rosolate, piselli e un po' d'acqua, 12 minuti, poi la pasta.",
+p25:"Pangrattato tostato in padella con aglio e peperoncino, spaghetti saltati con olio e acqua di cottura.",
+p26:"Apri le cozze in padella coperta, filtra l'acqua, sgusciane metà. Pomodorini e prezzemolo, poi gli spaghetti.",
+p27:"Gamberi 2 minuti in padella, togli. Zucchine 8 minuti, rimetti i gamberi, salta la pasta.",
+p28:"Zucca a cubetti con pancetta, cuoci 20 minuti finché si sfa, salta la pasta con grana.",
+
+r01:"Riso lessato in acqua salata, scolato, mantecato con burro e grana fuori dal fuoco.",
+r02:"Zucchine rosolate, riso lessato scolato dentro, grana e un giro d'olio.",
+r03:"Riso lessato condito con passata cotta 12 minuti con aglio e basilico.",
+r04:"Piselli e prosciutto a dadini in padella, riso lessato, mantecatura veloce.",
+r05:"Riso lessato, raffreddato sotto acqua, condito con mais, olive, pomodorini e olio. Meglio se riposa.",
+r06:"Funghi trifolati con prezzemolo, riso lessato dentro, grana.",
+r07:"Strati in teglia di patate, riso crudo, cozze aperte e pomodorini. Acqua a filo, 180 gradi per 50 minuti.",
+r08:"Farro lessato 25 minuti, raffreddato, condito con pomodorini, feta e olive.",
+
+v01:"Peperoni a falde con cipolla, olio, coperchio, 20 minuti a fuoco medio. Sale alla fine. Il giorno dopo è più buono.",
+v02:"Zucchine a rondelle rosolate, sfumate con aceto a fuoco vivo, menta fresca a crudo.",
+v03:"Lessa la cicoria 12 minuti, strizza bene, ripassa in padella con aglio e peperoncino 6 minuti.",
+v04:"Broccoli a cimette lessati 8 minuti, ripassati con aglio e peperoncino.",
+v05:"Cavolfiore lessato, besciamella veloce con latte e farina, grana e pangrattato sopra. 200 gradi per 20 minuti.",
+v06:"Verdure a pezzi grossi con olio e origano, friggitrice 190 gradi per 16 minuti scuotendo a metà.",
+v07:"Cipolle intere con la buccia, friggitrice 200 gradi per 28 minuti. Apri, olio, sale, pecorino.",
+v08:"Funghi a fette in padella con aglio, fuoco vivo, senza girare troppo. Prezzemolo alla fine.",
+v09:"Pulisci i carciofi tenendoli in acqua e limone, padella con olio, aglio e un dito d'acqua, coperti 25 minuti.",
+v10:"Fagiolini lessati 12 minuti, poi in padella con aglio e passata altri 10.",
+v11:"Verza a striscioline con pancetta, sfuma col vino, coperta 30 minuti.",
+v12:"Finocchi lessati 10 minuti, in pirofila con latte e grana, 200 gradi per 20 minuti.",
+v13:"Zucca a fette con rosmarino e olio, friggitrice 190 gradi per 22 minuti.",
+v14:"Asparagi in padella 8 minuti, uovo all'occhio di bue sopra, grana a scaglie.",
+v15:"Spinaci appassiti in padella, strizzati, burro e grana.",
+v16:"Zucchine a fette grigliate, strati con passata e mozzarella, grana sopra. 190 gradi per 30 minuti.",
+v17:"Tutte le verdure a pezzi uguali in teglia con olio e sale. 200 gradi per 40 minuti girando una volta.",
+v18:"Finocchi affettati sottili a crudo, limone, olio, sale, olive.",
+v19:"Svuota i peperoni, riempi con riso lessato, grana e passata. 180 gradi per 45 minuti.",
+v20:"Patate lesse schiacciate con grana, strati con scamorza, pangrattato sopra. 200 gradi per 25 minuti.",
+
+t01:"Patate a spicchi asciugate bene, poco olio, friggitrice 200 gradi per 20 minuti. Pecorino e rosmarino usciti dal cestello.",
+t02:"Patate lesse o al microonde 8 minuti, schiacciate con burro e latte caldo. Uovo all'occhio di bue sopra.",
+t03:"Patate a tocchi, olio, rosmarino, sale. 200 gradi per 40 minuti girando a metà.",
+t04:"Patate a fette e cipolla in padella con coperchio, 25 minuti a fuoco medio, scoperchia gli ultimi 5 per la crosta.",
+t05:"Patate lesse schiacciate con grana, in padella unta a formare un disco, 15 minuti per lato.",
+t06:"Patate lesse a cubetti raffreddate, olive, cipolla cruda, olio e origano.",
+t07:"Strati di patate, riso crudo e cozze con pomodorini. Acqua a coprire il riso, 180 gradi per 50 minuti.",
+
+l01:"Scola i fagioli, condisci con olio, sale e cipolla cruda a fettine sottili. Pane a fianco.",
+l02:"Ceci scolati in padella con pomodorini e rosmarino, 10 minuti, olio a crudo.",
+l03:"Soffritto di carota sedano cipolla, lenticchie e acqua doppia, 35 minuti. Pane tostato dentro.",
+l04:"Fave in ammollo la notte prima, lessate 50 minuti e passate a purè. Cicoria lessata a fianco, olio crudo abbondante.",
+l05:"Salsiccia rosolata, cannellini e passata, 20 minuti di fuoco basso.",
+l06:"Frulla ceci, aglio, limone, olio e un po' della loro acqua fino a crema liscia.",
+l07:"Ceci scolati con feta a cubetti, pomodorini, olive e olio.",
+l08:"Verza a strisce con aglio, fagioli e acqua, 35 minuti. Pane raffermo dentro.",
+
+x01:"Bagna la frisella pochi secondi sotto l'acqua, non inzupparla. Pomodoro schiacciato sopra, olio, sale, origano.",
+x02:"Pane, pomodoro strofinato o a fette, olio, sale, origano. Fine.",
+x03:"Pane aperto, capocollo e pecorino a fette. Un giro d'olio se il pane è asciutto.",
+x04:"Pane, mortadella a fette spesse, stracciatella sopra, pepe.",
+x05:"Focaccia. Non c'è procedimento.",
+x06:"Insalata lavata e asciugata bene, pecorino a scaglie, olive, olio e sale solo all'ultimo.",
+x07:"Rucola, grana a scaglie, noci, olio e limone.",
+x08:"Cetrioli, pomodori e cipolla a pezzi grossi, feta sopra intera, olive, origano, olio.",
+x09:"Scalda la piadina 1 minuto per lato, farcisci con crudo, stracciatella e rucola.",
+x10:"Piadina scaldata, cotto e scamorza dentro, richiudi in padella finché fila.",
+x11:"Taralli, olive, pecorino a cubetti. Cena da divano.",
+x12:"Yogurt in ciotola, frutta secca spezzata sopra.",
+x13:"Pane tostato strofinato con aglio, pomodorini a pezzi con olio e basilico sopra.",
+x14:"Affetta i salumi, disponi con olive e pane.",
+x15:"Burrata al centro, pomodori a spicchi intorno, basilico, olio, sale.",
+
+z01:"Stendi la base, passata condita con olio e sale, 200 gradi per 10 minuti, poi mozzarella e altri 6 minuti.",
+z02:"Base con olio, rosmarino e sale grosso, 220 gradi per 15 minuti.",
+z03:"Farcisci metà base con cotto e scamorza, chiudi a mezzaluna sigillando i bordi. 200 gradi per 20 minuti.",
+z04:"Pane, cotto e scamorza, friggitrice 180 gradi per 6 minuti.",
+z05:"Patate lesse schiacciate con uovo e grana, forma i cilindri, pangrattato, friggitrice 200 gradi per 15 minuti.",
+z06:"Verdure a fette in pirofila a strati con scamorza, uova sbattute sopra. 180 gradi per 35 minuti.",
+
+s01:"Orata pulita in teglia con patate a fette, limone, rosmarino e olio. 180 gradi per 30 minuti.",
+s02:"Cozze pulite in padella con olio e aglio, coperte, finché si aprono. Pomodorini e prezzemolo, pane tostato.",
+s03:"Calamari ad anelli rosolati, passata e piselli, coperto 30 minuti a fuoco basso.",
+s04:"Gamberi in padella rovente con aglio 2 minuti per lato, limone e prezzemolo a fuoco spento.",
+s05:"Polpo in pentola senza acqua a fuoco basso 50 minuti, poi patate lesse, olio e prezzemolo.",
+s06:"Seppie a strisce rosolate, passata e piselli, 40 minuti coperto.",
+s07:"Orata con limone e rosmarino nel cestello foderato, 180 gradi per 18 minuti.",
+
+q01:"Verdure a cubetti in pentola con olio, coprire d'acqua, 35 minuti. Pane tostato nel piatto e olio a crudo.",
+q02:"Patate a cubetti in brodo 20 minuti, butta il riso dentro, grana alla fine.",
+q03:"Cicoria lessata, pane raffermo bagnato nella stessa acqua, ripassa tutto in padella con aglio e peperoncino.",
+q04:"Zucca e patate lessate, frullate con la loro acqua e un po' di panna. Crostini sopra.",
+q05:"Tutte le verdure a cubetti, acqua a coprire, 35 minuti. Pasta corta negli ultimi 10.",
+
+g01:"Ammolla i noodles secondo la confezione. Verdure a julienne saltate a fuoco altissimo 4 minuti, unisci noodles, soia e olio di sesamo.",
+g02:"Pollo a striscioline saltato 4 minuti, togli. Zenzero e germogli 2 minuti, rimetti tutto con noodles e soia.",
+g03:"Maiale a striscioline rosolato, verza a strisce, noodles, soia e salsa di ostriche. Fuoco sempre alto.",
+g04:"Cuoci il ramen 3 minuti. A parte uovo sodo morbido 6 minuti e mezzo. Aggiungi germogli, soia e sesamo nella ciotola.",
+g05:"Pancetta croccante nel brodo del ramen, uovo marinato mezz'ora nella soia, porro fresco sopra.",
+g06:"Brodo di dado con carote e funghi 10 minuti, udon dentro 4 minuti, soia a fine cottura.",
+g07:"Pollo a fette rosolato, versa il teriyaki e fai caramellare 4 minuti. Riso basmati lessato a fianco, sesamo sopra.",
+g08:"Riso del giorno prima, meglio se freddo. Uovo strapazzato a parte, poi verdure, poi riso a fuoco altissimo, soia alla fine.",
+g09:"Gamberi 2 minuti, togli. Uovo, verdure, riso freddo, soia, rimetti i gamberi.",
+g10:"Fettine a striscioline marinate 10 minuti in soia e zenzero. Padella rovente 3 minuti, peperoni a parte, unisci.",
+g11:"Pasta di curry in padella 1 minuto, pollo a cubetti, latte di cocco, 20 minuti di fuoco dolce. Riso a fianco.",
+g12:"Curry in polvere tostato, ceci e latte di cocco, 20 minuti. Spinaci negli ultimi 3.",
+g13:"Tofu strizzato e a cubetti, rosolato senza girarlo troppo, soia e sesamo alla fine, germogli a crudo.",
+g14:"Gyoza in padella con poco olio 2 minuti, poi mezzo bicchiere d'acqua e coperchio 6 minuti. Scoperchia e fai asciugare.",
+g15:"Involtini nel cestello con un velo d'olio, 190 gradi per 12 minuti girando a metà.",
+g16:"Riso lessato e raffreddato, condito con soia. Sopra avocado, edamame e sesamo a settori.",
+g17:"Riso cotto e ancora tiepido, forma i triangoli con le mani bagnate, avvolgi nell'alga.",
+g18:"Brodo caldo con alga e tofu a cubetti, porro a rondelle sottili, 5 minuti senza far bollire forte.",
+g19:"Noodles ammollati, uovo strapazzato a parte, salta tutto con soia, lime e arachidi tritate. Germogli a crudo.",
+g20:"Pollo a bocconcini infarinati e rosolati, poi soia e sesamo a caramellare 3 minuti.",
+g21:"Maiale a cubetti rosolato, peperoni, poi aceto, zucchero e concentrato. Fai addensare 5 minuti.",
+g22:"Maiale a striscioline saltato con zenzero e soia, servito dentro pane morbido con germogli.",
+g23:"Cipolla stufata con curry, riso lessato dentro, uovo fritto sopra.",
+g24:"Noodles lessati e raffreddati, salsa di arachidi diluita con soia e lime, cetrioli a julienne.",
+g25:"Verdure a pezzi uguali, wok o padella grande rovente, zenzero grattugiato, 5 minuti sempre in movimento, soia alla fine.",
+
+w01:"Pollo a striscioline con paprika, peperoni e cipolla a fuoco alto 12 minuti. Tortillas scaldate, farcisci a tavola.",
+w02:"Riso e fagioli neri caldi, formaggio, salsa, arrotola stretto nella tortilla scaldata.",
+w03:"Macinato rosolato con salsa taco 12 minuti, tortillas piegate, insalata e formaggio sopra.",
+w04:"Nachos in teglia, formaggio e fagioli sopra, 200 gradi per 10 minuti finché fila.",
+w05:"Formaggio e peperoni fra due tortillas, padella 3 minuti per lato, taglia a spicchi.",
+w06:"Macinato rosolato con cipolla, paprika e cumino, pelati e fagioli neri, 35 minuti a fuoco basso.",
+w07:"Schiaccia l'avocado con lime, sale e cipolla tritata. Nachos a fianco.",
+w08:"Pollo a striscioline cotto, tortilla con insalata e maionese, arrotola stretto.",
+w09:"Hummus in ciotola con olio sopra, verdure a bastoncini e pane a fianco.",
+w10:"Maiale a cubetti sugli stecchi, padella 12 minuti. Yogurt con cetriolo grattugiato e aglio a fianco.",
+w11:"Macinato speziato a polpettine allungate, padella 10 minuti, yogurt e cipolla nel pane.",
+w12:"Frulla ceci, aglio, coriandolo e cumino. Forma le palline, friggitrice 190 gradi per 15 minuti.",
+w13:"Pollo marinato in yogurt e paprika mezz'ora, poi padella 15 minuti. Basmati a fianco.",
+w14:"Ceci con cetrioli, pomodorini, limone e coriandolo. Riposo 15 minuti.",
+w15:"Peperoni e cipolla in padella, pelati e cumino 15 minuti, rompi le uova dentro e copri 5 minuti."
+};
+
+function prodotti(){return [...PRODOTTI,...(S.mieiProd||[])];}
+function mappa(){return Object.fromEntries(prodotti().map(p=>[p.id,p]));}
+let MAPPA=Object.fromEntries(PRODOTTI.map(p=>[p.id,p]));
+function aggiornaMappa(){MAPPA=mappa();}
+
+/* cene: stop = dove ti devi fermare tornando dal lavoro */
+const CENE=[
+ {id:'e01',n:'Frittata di cipolle',m:20,cat:'uova',ing:['uova','cipolle','olio']},
+ {id:'e02',n:'Frittata di patate',m:25,cat:'uova',ing:['uova','patate','olio']},
+ {id:'e03',n:'Frittata di zucchine',m:18,cat:'uova',ing:['uova','zucchine','grana','olio']},
+ {id:'e04',n:'Frittata di peperoni',m:22,cat:'uova',ing:['uova','peperoni','olio']},
+ {id:'e05',n:'Frittata di asparagi',m:18,cat:'uova',ing:['uova','asparagi','grana']},
+ {id:'e06',n:'Frittata di funghi',m:18,cat:'uova',ing:['uova','funghi','prezzemolo']},
+ {id:'e07',n:'Frittata di spinaci e ricotta',m:20,cat:'uova',stop:'caseificio',ing:['uova','spinaci','ricotta']},
+ {id:'e08',n:'Frittata di pasta avanzata',m:15,cat:'uova',ing:['uova','pasta','grana']},
+ {id:'e09',n:'Frittata di cotto e formaggio',m:12,cat:'uova',ing:['uova','cotto','scamorza']},
+ {id:'e10',n:'Frittata di carciofi',m:25,cat:'uova',ing:['uova','carciofi','grana']},
+ {id:'e11',n:'Uova in purgatorio',m:12,cat:'uova',ing:['uova','passata','pane','olio']},
+ {id:'e12',n:'Uova strapazzate con pomodorini',m:8,cat:'uova',ing:['uova','pomodorini','olio']},
+ {id:'e13',n:'Uova al tegamino con salsiccia',m:15,cat:'uova',stop:'macellaio',ing:['uova','salsiccia']},
+ {id:'e14',n:'Omelette prosciutto e formaggio',m:8,cat:'uova',ing:['uova','cotto','caciocavallo']},
+ {id:'e15',n:'Omelette ai funghi',m:12,cat:'uova',ing:['uova','funghi','grana']},
+ {id:'e16',n:'Uova sode, patate lesse e cipolla',m:22,cat:'uova',ing:['uova','patate','cipolle','olio']},
+ {id:'e17',n:'Uova al tegamino in friggitrice',m:12,cat:'uova',ff:true,ing:['uova','pomodorini','grana']},
+ {id:'e18',n:'Uova affogate su pane tostato',m:10,cat:'uova',ing:['uova','pane','aceto','pepe']},
+ {id:'e19',n:'Uova e peperoni in padella',m:20,cat:'uova',ing:['uova','peperoni','cipolle']},
+ {id:'e20',n:'Frittata di porri e patate',m:25,cat:'uova',ing:['uova','porri','patate']},
+
+ {id:'f01',n:'Caciocavallo in padella sul pane',m:8,cat:'formaggi',ing:['caciocavallo','pane','origano']},
+ {id:'f02',n:'Provola arrostita con peperoni',m:18,cat:'formaggi',ing:['provola','peperoni','olio']},
+ {id:'f03',n:'Scamorza fusa su patate',m:25,cat:'formaggi',ff:true,ing:['patate','scamorza','rosmarino']},
+ {id:'f04',n:'Mozzarella in carrozza',m:12,cat:'formaggi',stop:'caseificio',ing:['mozzarella','pane','uova','farina']},
+ {id:'f05',n:'Burrata, pomodori e focaccia',m:0,cat:'formaggi',stop:'caseificio',ing:['burrata','pomodori','focaccia']},
+ {id:'f06',n:'Stracciatella sui pomodorini',m:5,cat:'formaggi',stop:'caseificio',ing:['stracciatella','pomodorini','olio']},
+ {id:'f07',n:'Caprese con origano',m:5,cat:'formaggi',stop:'caseificio',ing:['mozzarella','pomodori','origano']},
+ {id:'f08',n:'Ricotta con pane, olio e pepe',m:3,cat:'formaggi',stop:'caseificio',ing:['ricotta','pane','pepe']},
+ {id:'f09',n:'Nodini con rucola e crudo',m:5,cat:'formaggi',stop:'caseificio',ing:['nodini','rucola','crudo']},
+ {id:'f10',n:'Gorgonzola e noci sul pane',m:5,cat:'formaggi',ing:['gorgonzola','noci','pane']},
+ {id:'f11',n:'Brie al forno con miele di noci',m:15,cat:'formaggi',ing:['brie','noci','pane']},
+ {id:'f12',n:'Feta con pomodori e olive',m:6,cat:'formaggi',ing:['feta','pomodori','olive','olio']},
+ {id:'f13',n:'Tagliere: capocollo, pecorino, olive',m:5,cat:'formaggi',ing:['capocollo','pecorino','olive','pane']},
+ {id:'f14',n:'Ricotta forte sul pane con pomodoro',m:4,cat:'formaggi',ing:['ricottaforte','pane','pomodori']},
+ {id:'f15',n:'Formaggio grigliato con radicchio',m:14,cat:'formaggi',ing:['scamorza','radicchio','aceto']},
+
+ {id:'c01',n:'Fettina in padella al limone',m:15,cat:'carne',stop:'macellaio',ing:['fettine','limoni','olio']},
+ {id:'c02',n:'Fettina impanata',m:18,cat:'carne',stop:'macellaio',ing:['fettine','uova','pangrattato']},
+ {id:'c03',n:'Fettina alla pizzaiola',m:22,cat:'carne',stop:'macellaio',ing:['fettine','passata','origano']},
+ {id:'c04',n:'Salsiccia e patate in friggitrice',m:28,cat:'carne',stop:'macellaio',ff:true,ing:['salsiccia','patate','rosmarino']},
+ {id:'c05',n:'Salsiccia e friarielli di cicoria',m:25,cat:'carne',stop:'macellaio',ing:['salsiccia','cicoria','aglio','peperoncino']},
+ {id:'c06',n:'Salsiccia e peperoni',m:25,cat:'carne',stop:'macellaio',ing:['salsiccia','peperoni','cipolle']},
+ {id:'c07',n:'Bombette in padella',m:15,cat:'carne',stop:'macellaio',ing:['bombette','pane']},
+ {id:'c08',n:'Braciole al sugo',m:40,cat:'carne',stop:'macellaio',ing:['braciole','passata','pane']},
+ {id:'c09',n:'Involtini al sugo',m:45,cat:'carne',stop:'macellaio',ing:['involtini','passata','pecorino']},
+ {id:'c10',n:'Hamburger fatto a mano',m:15,cat:'carne',stop:'macellaio',ing:['macinato','pane','cipolle']},
+ {id:'c11',n:'Polpette al sugo (ne avanzano)',m:35,cat:'carne',stop:'macellaio',ing:['macinato','passata','uova','pangrattato']},
+ {id:'c12',n:'Polpette al forno con patate',m:35,cat:'carne',stop:'macellaio',ff:true,ing:['macinato','patate','pangrattato']},
+ {id:'c13',n:'Polpettone con uova sode',m:60,cat:'carne',stop:'macellaio',ing:['macinato','uova','pangrattato','grana']},
+ {id:'c14',n:'Ragù di macinato veloce',m:35,cat:'carne',stop:'macellaio',ing:['macinato','passata','carote','sedano','cipolle']},
+ {id:'c15',n:'Pollo al limone e origano in friggitrice',m:18,cat:'carne',stop:'macellaio',ff:true,ing:['pollo','limoni','origano']},
+ {id:'c16',n:'Pollo alla cacciatora',m:45,cat:'carne',stop:'macellaio',ing:['cosce','passata','olive','rosmarino']},
+ {id:'c17',n:'Alette di pollo in friggitrice',m:25,cat:'carne',stop:'macellaio',ff:true,ing:['cosce','peperoncino','olio']},
+ {id:'c18',n:'Cotolette di pollo impanate',m:20,cat:'carne',stop:'macellaio',ing:['pollo','uova','pangrattato']},
+ {id:'c19',n:'Pollo e peperoni in padella',m:25,cat:'carne',stop:'macellaio',ing:['pollo','peperoni','cipolle']},
+ {id:'c20',n:'Straccetti di tacchino e rucola',m:15,cat:'carne',stop:'macellaio',ing:['tacchino','rucola','grana','limoni']},
+ {id:'c21',n:'Scaloppine al vino bianco',m:20,cat:'carne',stop:'macellaio',ing:['fettine','vinobianco','farina','burro']},
+ {id:'c22',n:'Saltimbocca alla romana',m:18,cat:'carne',stop:'macellaio',ing:['fettine','crudo','salvia','burro']},
+ {id:'c23',n:'Spezzatino con patate',m:75,cat:'carne',stop:'macellaio',ing:['spezzatino','patate','passata','carote']},
+ {id:'c24',n:'Spezzatino con piselli',m:70,cat:'carne',stop:'macellaio',ing:['spezzatino','piselli','cipolle','passata']},
+ {id:'c25',n:'Costine al forno',m:60,cat:'carne',stop:'macellaio',ing:['costine','patate','rosmarino']},
+ {id:'c26',n:'Agnello al forno con patate',m:70,cat:'carne',stop:'macellaio',ing:['agnello','patate','rosmarino','vinobianco']},
+ {id:'c27',n:'Coniglio con olive e rosmarino',m:60,cat:'carne',stop:'macellaio',ing:['coniglio','olive','rosmarino','vinobianco']},
+ {id:'c28',n:'Fegato con cipolle',m:20,cat:'carne',stop:'macellaio',ing:['fegato','cipolle','vinobianco']},
+ {id:'c29',n:'Würstel e patate in friggitrice',m:20,cat:'carne',ff:true,ing:['wurstel','patate','senape']},
+ {id:'c30',n:'Spiedini misti in padella',m:18,cat:'carne',stop:'macellaio',ing:['braciole','peperoni','cipolle']},
+
+ {id:'p01',n:'Pasta aglio, olio e peperoncino',m:12,cat:'pasta',ing:['spaghetti','aglio','olio','peperoncino']},
+ {id:'p02',n:'Pasta al pomodoro e basilico',m:15,cat:'pasta',ing:['pasta','passata','basilico','grana']},
+ {id:'p03',n:'Pasta alla puttanesca senza acciughe',m:18,cat:'pasta',ing:['spaghetti','pelati','olive','capperi','peperoncino']},
+ {id:'p04',n:'Pasta cacio e pepe',m:15,cat:'pasta',ing:['spaghetti','pecorino','pepe']},
+ {id:'p05',n:'Carbonara',m:18,cat:'pasta',ing:['spaghetti','uova','pancetta','pecorino','pepe']},
+ {id:'p06',n:'Pasta alla gricia',m:18,cat:'pasta',ing:['pasta','pancetta','pecorino','pepe']},
+ {id:'p07',n:'Amatriciana',m:22,cat:'pasta',ing:['pasta','pancetta','pelati','pecorino']},
+ {id:'p08',n:'Pasta, patate e provola',m:28,cat:'pasta',ing:['pasta','patate','provola']},
+ {id:'p09',n:'Pasta e ceci',m:30,cat:'pasta',ing:['pasta','ceci','rosmarino','aglio']},
+ {id:'p10',n:'Pasta e fagioli',m:30,cat:'pasta',ing:['pasta','fagioli','sedano','carote']},
+ {id:'p11',n:'Pasta e lenticchie',m:35,cat:'pasta',ing:['pasta','lenticchie','carote','sedano']},
+ {id:'p12',n:'Pasta con zucchine e provola',m:20,cat:'pasta',ing:['pasta','zucchine','provola']},
+ {id:'p13',n:'Pasta con funghi e panna',m:20,cat:'pasta',ing:['pasta','funghi','panna','prezzemolo']},
+ {id:'p14',n:'Pasta con pomodorini e stracciatella',m:15,cat:'pasta',stop:'caseificio',ing:['pasta','pomodorini','stracciatella','basilico']},
+ {id:'p15',n:'Pasta al pesto di rucola e noci',m:15,cat:'pasta',ing:['pasta','rucola','noci','grana']},
+ {id:'p16',n:'Pasta al forno con mozzarella',m:45,cat:'pasta',stop:'caseificio',ing:['pasta','passata','mozzarella','grana']},
+ {id:'p17',n:'Orecchiette con broccoli',m:25,cat:'pasta',ing:['orecchiette','broccoli','aglio','peperoncino']},
+ {id:'p18',n:'Orecchiette al sugo di braciole',m:50,cat:'pasta',stop:'macellaio',ing:['orecchiette','braciole','passata','pecorino']},
+ {id:'p19',n:'Pasta con cavolfiore e pangrattato',m:28,cat:'pasta',ing:['pasta','cavolfiore','pangrattato','uvetta']},
+ {id:'p20',n:'Pasta alla Norma senza melanzane (zucchine)',m:25,cat:'pasta',stop:'caseificio',ing:['pasta','zucchine','passata','ricotta']},
+ {id:'p21',n:'Pasta con salsiccia e pomodorini',m:22,cat:'pasta',stop:'macellaio',ing:['pasta','salsiccia','pomodorini']},
+ {id:'p22',n:'Pasta con speck e radicchio',m:20,cat:'pasta',ing:['pasta','speck','radicchio','panna']},
+ {id:'p23',n:'Pasta al pomodoro crudo e mozzarella',m:14,cat:'pasta',stop:'caseificio',ing:['pasta','pomodorini','mozzarella','basilico']},
+ {id:'p24',n:'Pasta con piselli e pancetta',m:22,cat:'pasta',ing:['pasta','piselli','pancetta','cipolle']},
+ {id:'p25',n:'Spaghetti alla carrettiera',m:14,cat:'pasta',ing:['spaghetti','aglio','pangrattato','peperoncino']},
+ {id:'p26',n:'Pasta con cozze e pomodorini',m:25,cat:'pasta',stop:'pescheria',ing:['spaghetti','cozze','pomodorini','prezzemolo']},
+ {id:'p27',n:'Pasta con gamberi e zucchine',m:22,cat:'pasta',stop:'pescheria',ing:['pasta','gamberi','zucchine']},
+ {id:'p28',n:'Pasta con la zucca e pancetta',m:30,cat:'pasta',ing:['pasta','zucca','pancetta','grana']},
+
+ {id:'r01',n:'Riso in bianco con burro e grana',m:14,cat:'riso',ing:['riso','burro','grana']},
+ {id:'r02',n:'Riso con zucchine e formaggio',m:18,cat:'riso',ing:['riso','zucchine','grana']},
+ {id:'r03',n:'Riso al pomodoro',m:18,cat:'riso',ing:['riso','passata','basilico']},
+ {id:'r04',n:'Riso con piselli e prosciutto',m:20,cat:'riso',ing:['riso','piselli','cotto']},
+ {id:'r05',n:'Riso freddo con mais, olive e pomodorini',m:20,cat:'riso',ing:['riso','mais','olive','pomodorini']},
+ {id:'r06',n:'Riso con funghi',m:22,cat:'riso',ing:['riso','funghi','prezzemolo']},
+ {id:'r07',n:'Riso, patate e cozze al forno',m:60,cat:'riso',stop:'pescheria',ing:['riso','patate','cozze','pomodorini']},
+ {id:'r08',n:'Farro con verdure e feta',m:25,cat:'riso',ing:['farro','pomodorini','feta','olive']},
+
+ {id:'v01',n:'Peperoni in padella con cipolla',m:22,cat:'verdure',ing:['peperoni','cipolle','pane']},
+ {id:'v02',n:'Zucchine in padella con aceto e menta',m:15,cat:'verdure',ing:['zucchine','aceto','menta']},
+ {id:'v03',n:'Cicoria ripassata in padella',m:20,cat:'verdure',ing:['cicoria','aglio','peperoncino']},
+ {id:'v04',n:'Broccoli ripassati',m:20,cat:'verdure',ing:['broccoli','aglio','peperoncino']},
+ {id:'v05',n:'Cavolfiore gratinato',m:40,cat:'verdure',ing:['cavolfiore','latte','grana','pangrattato']},
+ {id:'v06',n:'Peperoni e zucchine in friggitrice',m:18,cat:'verdure',ff:true,ing:['peperoni','zucchine','origano']},
+ {id:'v07',n:'Cipolle intere arrostite',m:30,cat:'verdure',ff:true,ing:['cipolle','olio','pecorino']},
+ {id:'v08',n:'Funghi trifolati',m:15,cat:'verdure',ing:['funghi','aglio','prezzemolo']},
+ {id:'v09',n:'Carciofi in padella',m:30,cat:'verdure',ing:['carciofi','aglio','prezzemolo','limoni']},
+ {id:'v10',n:'Fagiolini con pomodoro',m:25,cat:'verdure',ing:['fagiolini','passata','aglio']},
+ {id:'v11',n:'Verza stufata con pancetta',m:35,cat:'verdure',ing:['verza','pancetta','vinobianco']},
+ {id:'v12',n:'Finocchi gratinati',m:35,cat:'verdure',ing:['finocchi','latte','grana']},
+ {id:'v13',n:'Zucca al forno con rosmarino',m:35,cat:'verdure',ff:true,ing:['zucca','rosmarino','olio']},
+ {id:'v14',n:'Asparagi con uovo e grana',m:18,cat:'verdure',ing:['asparagi','uova','grana']},
+ {id:'v15',n:'Spinaci al burro e grana',m:12,cat:'verdure',ing:['spinaci','burro','grana']},
+ {id:'v16',n:'Parmigiana di zucchine',m:50,cat:'verdure',stop:'caseificio',ing:['zucchine','passata','mozzarella','grana']},
+ {id:'v17',n:'Teglia di verdure miste al forno',m:45,cat:'verdure',ff:true,ing:['patate','peperoni','zucchine','cipolle']},
+ {id:'v18',n:'Insalata di finocchi e arance',m:10,cat:'verdure',ing:['finocchi','limoni','olive']},
+ {id:'v19',n:'Peperoni ripieni di riso',m:55,cat:'verdure',ing:['peperoni','riso','grana','passata']},
+ {id:'v20',n:'Tortino di patate e scamorza',m:45,cat:'verdure',ing:['patate','scamorza','pangrattato']},
+
+ {id:'t01',n:'Patate a spicchi in friggitrice',m:22,cat:'patate',ff:true,ing:['patate','rosmarino','pecorino']},
+ {id:'t02',n:'Purè con un uovo sopra',m:15,cat:'patate',ing:['patate','burro','latte','uova']},
+ {id:'t03',n:'Patate al forno con rosmarino',m:45,cat:'patate',ing:['patate','rosmarino','olio']},
+ {id:'t04',n:'Patate e cipolle in padella',m:30,cat:'patate',ing:['patate','cipolle','olio']},
+ {id:'t05',n:'Tortino di patate schiacciate',m:35,cat:'patate',ing:['patate','grana','pangrattato']},
+ {id:'t06',n:'Insalata di patate, olive e cipolla',m:25,cat:'patate',ing:['patate','olive','cipolle','olio']},
+ {id:'t07',n:'Patate, riso e cozze (tiella)',m:65,cat:'patate',stop:'pescheria',ing:['patate','riso','cozze','pomodorini']},
+
+ {id:'l01',n:'Fagioli con cipolla cruda e pane',m:6,cat:'legumi',ing:['fagioli','cipolle','pane','olio']},
+ {id:'l02',n:'Ceci con pomodorini e rosmarino',m:12,cat:'legumi',ing:['ceci','pomodorini','rosmarino']},
+ {id:'l03',n:'Zuppa di lenticchie',m:40,cat:'legumi',ing:['lenticchie','carote','sedano','cipolle']},
+ {id:'l04',n:'Fave e cicoria',m:60,cat:'legumi',ing:['fave','cicoria','olio']},
+ {id:'l05',n:'Cannellini con salsiccia',m:25,cat:'legumi',stop:'macellaio',ing:['cannellini','salsiccia','passata']},
+ {id:'l06',n:'Hummus di ceci con pane',m:12,cat:'legumi',ing:['ceci','limoni','aglio','olio']},
+ {id:'l07',n:'Insalata di ceci, feta e pomodorini',m:10,cat:'legumi',ing:['ceci','feta','pomodorini','olive']},
+ {id:'l08',n:'Zuppa di fagioli e verza',m:45,cat:'legumi',ing:['fagioli','verza','pane','aglio']},
+
+ {id:'x01',n:'Friselle con pomodoro e origano',m:5,cat:'fredde',ing:['friselle','pomodori','origano','olio']},
+ {id:'x02',n:'Pane e pomodoro',m:3,cat:'fredde',ing:['pane','pomodori','origano','olio']},
+ {id:'x03',n:'Panino con capocollo e pecorino',m:5,cat:'fredde',ing:['pane','capocollo','pecorino']},
+ {id:'x04',n:'Panino con mortadella e stracciatella',m:5,cat:'fredde',stop:'caseificio',ing:['pane','mortadella','stracciatella']},
+ {id:'x05',n:'Focaccia barese e via',m:0,cat:'fredde',stop:'panificio',ing:['focaccia']},
+ {id:'x06',n:'Insalatona con pecorino e olive',m:8,cat:'fredde',ing:['insalata','pecorino','olive','olio']},
+ {id:'x07',n:'Insalata di rucola, grana e pere',m:8,cat:'fredde',ing:['rucola','grana','noci']},
+ {id:'x08',n:'Insalata greca',m:10,cat:'fredde',ing:['cetrioli','pomodori','feta','olive','cipolle']},
+ {id:'x09',n:'Piadina con crudo e stracciatella',m:8,cat:'fredde',stop:'caseificio',ing:['piadina','crudo','stracciatella','rucola']},
+ {id:'x10',n:'Piadina con cotto e formaggio',m:8,cat:'fredde',ing:['piadina','cotto','scamorza']},
+ {id:'x11',n:'Taralli, olive e pecorino',m:2,cat:'fredde',ing:['taralli','olive','pecorino']},
+ {id:'x12',n:'Yogurt e frutta secca',m:2,cat:'fredde',ing:['yogurt','fruttasecca']},
+ {id:'x13',n:'Bruschette con pomodorini e basilico',m:10,cat:'fredde',ing:['pane','pomodorini','basilico','aglio']},
+ {id:'x14',n:'Tagliere di salumi misti',m:5,cat:'fredde',ing:['capocollo','salame','crudo','pane','olive']},
+ {id:'x15',n:'Caprese di burrata e pomodori',m:5,cat:'fredde',stop:'caseificio',ing:['burrata','pomodori','basilico']},
+
+ {id:'z01',n:'Pizza fatta con base pronta',m:20,cat:'forno',stop:'caseificio',ing:['basepizza','passata','mozzarella','origano']},
+ {id:'z02',n:'Focaccia bianca con rosmarino',m:25,cat:'forno',ing:['basepizza','rosmarino','olio']},
+ {id:'z03',n:'Calzone con cotto e formaggio',m:25,cat:'forno',ing:['basepizza','cotto','scamorza']},
+ {id:'z04',n:'Toast in friggitrice',m:8,cat:'forno',ff:true,ing:['pane','cotto','scamorza']},
+ {id:'z05',n:'Crocchette di patate in friggitrice',m:25,cat:'forno',ff:true,ing:['patate','uova','pangrattato','grana']},
+ {id:'z06',n:'Sformato di verdure e formaggio',m:45,cat:'forno',ing:['zucchine','patate','scamorza','uova']},
+
+ {id:'s01',n:'Orata al forno con patate',m:40,cat:'pesce',stop:'pescheria',ing:['orata','patate','limoni','rosmarino']},
+ {id:'s02',n:'Cozze alla marinara',m:20,cat:'pesce',stop:'pescheria',ing:['cozze','pomodorini','prezzemolo','pane']},
+ {id:'s03',n:'Calamari in umido con piselli',m:35,cat:'pesce',stop:'pescheria',ing:['calamari','piselli','passata']},
+ {id:'s04',n:'Gamberi al limone in padella',m:12,cat:'pesce',stop:'pescheria',ing:['gamberi','limoni','prezzemolo','aglio']},
+ {id:'s05',n:'Polpo con patate',m:70,cat:'pesce',stop:'pescheria',ing:['polpo','patate','prezzemolo','olio']},
+ {id:'s06',n:'Seppie con piselli',m:45,cat:'pesce',stop:'pescheria',ing:['seppie','piselli','passata']},
+ {id:'s07',n:'Orata in friggitrice ad aria',m:22,cat:'pesce',stop:'pescheria',ff:true,ing:['orata','limoni','rosmarino']},
+
+ {id:'q01',n:'Zuppa di verdure con pane',m:40,cat:'zuppe',ing:['carote','sedano','patate','verza','pane']},
+ {id:'q02',n:'Minestra di riso e patate',m:30,cat:'zuppe',ing:['riso','patate','dado','grana']},
+ {id:'q03',n:'Pancotto con cicoria',m:30,cat:'zuppe',ing:['pane','cicoria','aglio','peperoncino']},
+ {id:'q04',n:'Vellutata di zucca',m:35,cat:'zuppe',ing:['zucca','patate','panna','pane']},
+ {id:'q05',n:'Minestrone di verdure',m:45,cat:'zuppe',ing:['carote','sedano','fagiolini','patate','pasta']},
+ {id:'g01',n:'Noodles saltati con verdure',m:15,cat:'etnico',ing:['noodles','carote','peperoni','soia','sesamo']},
+ {id:'g02',n:'Noodles con pollo e soia',m:18,cat:'etnico',stop:'macellaio',ing:['noodles','pollo','soia','zenzero','germogli']},
+ {id:'g03',n:'Yakisoba di maiale',m:20,cat:'etnico',stop:'macellaio',ing:['noodles','braciole','verza','soia','ostrica']},
+ {id:'g04',n:'Ramen istantaneo migliorato con uovo',m:12,cat:'etnico',ing:['ramen','uova','germogli','soia','sesamo']},
+ {id:'g05',n:'Ramen con pancetta e uovo marinato',m:25,cat:'etnico',ing:['ramen','pancetta','uova','soia','porri']},
+ {id:'g06',n:'Udon in brodo con verdure',m:18,cat:'etnico',ing:['udon','dado','carote','funghi','soia']},
+ {id:'g07',n:'Pollo teriyaki con riso',m:22,cat:'etnico',stop:'macellaio',ing:['pollo','teriyaki','basmati','semisesamo']},
+ {id:'g08',n:'Riso saltato con uovo e verdure',m:15,cat:'etnico',ing:['basmati','uova','carote','piselli','soia']},
+ {id:'g09',n:'Riso saltato con gamberi',m:18,cat:'etnico',stop:'pescheria',ing:['basmati','gamberi','uova','soia','germogli']},
+ {id:'g10',n:'Manzo saltato con peperoni e soia',m:18,cat:'etnico',stop:'macellaio',ing:['fettine','peperoni','soia','zenzero','aglio']},
+ {id:'g11',n:'Curry di pollo con latte di cocco',m:30,cat:'etnico',stop:'macellaio',ing:['pollo','currypasta','lattecocco','basmati']},
+ {id:'g12',n:'Curry di verdure e ceci',m:28,cat:'etnico',ing:['ceci','lattecocco','curry','basmati','spinaci']},
+ {id:'g13',n:'Tofu saltato con soia e sesamo',m:15,cat:'etnico',ing:['tofu','soia','sesamo','germogli','zenzero']},
+ {id:'g14',n:'Gyoza in padella',m:12,cat:'etnico',ing:['gyoza','soia','sesamo']},
+ {id:'g15',n:'Involtini primavera in friggitrice',m:15,cat:'etnico',ff:true,ing:['involtiniprimavera','soia']},
+ {id:'g16',n:'Poke bowl con salmone o pollo',m:20,cat:'etnico',ing:['risosushi','guacamole','edamame','soia','semisesamo']},
+ {id:'g17',n:'Onigiri o riso con alga',m:20,cat:'etnico',ing:['risosushi','alga','semisesamo','soia']},
+ {id:'g18',n:'Zuppa di miso veloce con tofu',m:10,cat:'etnico',ing:['tofu','alga','dado','porri']},
+ {id:'g19',n:'Pad thai semplificato',m:22,cat:'etnico',ing:['noodles','uova','arachidi','germogli','lime']},
+ {id:'g20',n:'Pollo al sesamo croccante',m:25,cat:'etnico',stop:'macellaio',ing:['pollo','semisesamo','soia','farina','basmati']},
+ {id:'g21',n:'Maiale in agrodolce',m:25,cat:'etnico',stop:'macellaio',ing:['braciole','peperoni','aceto','zucchero','concentrato']},
+ {id:'g22',n:'Bao o panino al vapore con maiale',m:25,cat:'etnico',stop:'macellaio',ing:['braciole','soia','zenzero','germogli']},
+ {id:'g23',n:'Riso al curry con uovo fritto',m:20,cat:'etnico',ing:['basmati','curry','uova','cipolle']},
+ {id:'g24',n:'Noodles freddi con salsa di arachidi',m:15,cat:'etnico',ing:['noodles','arachidi','soia','lime','cetrioli']},
+ {id:'g25',n:'Verdure saltate al wok con zenzero',m:15,cat:'etnico',ing:['broccoli','carote','zenzero','soia','sesamo']},
+
+ {id:'w01',n:'Fajitas di pollo',m:25,cat:'etnico',stop:'macellaio',ing:['pollo','tortillas','peperoni','cipolle','paprika']},
+ {id:'w02',n:'Burrito con fagioli neri e riso',m:20,cat:'etnico',ing:['tortillas','fagiolineri','riso','scamorza','salsataco']},
+ {id:'w03',n:'Tacos di manzo macinato',m:22,cat:'etnico',stop:'macellaio',ing:['tortillas','macinato','salsataco','insalata','scamorza']},
+ {id:'w04',n:'Nachos al forno con formaggio',m:15,cat:'etnico',ing:['nachos','scamorza','fagiolineri','salsataco']},
+ {id:'w05',n:'Quesadilla al formaggio',m:12,cat:'etnico',ing:['tortillas','scamorza','peperoni']},
+ {id:'w06',n:'Chili con carne',m:45,cat:'etnico',stop:'macellaio',ing:['macinato','fagiolineri','pelati','paprika','cipolle']},
+ {id:'w07',n:'Guacamole con nachos',m:10,cat:'etnico',ing:['guacamole','lime','cipolle','nachos']},
+ {id:'w08',n:'Wrap con pollo e verdure',m:15,cat:'etnico',stop:'macellaio',ing:['tortillas','pollo','insalata','maionese']},
+ {id:'w09',n:'Hummus con verdure e pane',m:8,cat:'etnico',ing:['hummuspronto','carote','cetrioli','pane']},
+ {id:'w10',n:'Souvlaki di maiale con tzatziki',m:25,cat:'etnico',stop:'macellaio',ing:['braciole','yogurtgreco','cetrioli','aglio','pane']},
+ {id:'w11',n:'Kebab in padella con yogurt',m:22,cat:'etnico',stop:'macellaio',ing:['macinato','yogurtgreco','cipolle','paprika','pane']},
+ {id:'w12',n:'Falafel di ceci in friggitrice',m:30,cat:'etnico',ff:true,ing:['ceci','coriandolo','aglio','cumino','pane']},
+ {id:'w13',n:'Riso basmati con pollo alla paprika',m:28,cat:'etnico',stop:'macellaio',ing:['basmati','pollo','paprika','yogurtgreco']},
+ {id:'w14',n:'Insalata di ceci alla mediorientale',m:12,cat:'etnico',ing:['ceci','coriandolo','limoni','cetrioli','pomodorini']},
+ {id:'w15',n:'Uova alla shakshuka',m:25,cat:'etnico',ing:['uova','pelati','peperoni','cumino','pane']}
+];
+function cene(){return [...CENE,...(S.mie||[])];}
+let CENE_MAP=Object.fromEntries(CENE.map(c=>[c.id,c]));
+function aggiornaCene(){CENE_MAP=Object.fromEntries(cene().map(c=>[c.id,c]));}
+const ICONA_STOP={caseificio:'caseificio',macellaio:'macellaio',panificio:'panificio',pescheria:'pescheria'};
+/* una fermata sconosciuta (per esempio arrivata dalla sincronizzazione) non
+   deve stampare "undefined": ripiega su un segnaposto neutro. */
+const icoStop=s=>ico(ICONA_STOP[s]||'cene','mini');
+/* icona a tratto dallo sprite in cima alla pagina */
+const FOTO_CAT=new Set(['pasta','carne','zuppe','pesce','etnico','riso','forno','patate','verdure','legumi']);
+/* riquadro di un piatto: la fotografia se c'e', altrimenti l'icona a tratto */
+function riquadro(f,cls){
+  if(FOTO_CAT.has(f.ic))return '<img class="foto" src="foto/'+f.ic+'.png" alt="" decoding="async">';
+  return ico(f.ic,cls);
+}
+const ico=(nome,cls='')=>'<svg class="tratto '+cls+'" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+nome+'"/></svg>';
+/* la fermata copre solo il suo reparto: se una cena vuole burrata E focaccia,
+   passare dal caseificio non ti procura il pane. */
+const REPARTO_STOP={macellaio:'Macellaio',caseificio:'Caseificio',panificio:'Panificio',pescheria:'Pescheria'};
+/* faccia di ogni reparto: icona e tinta, per le intestazioni delle sezioni */
+const FACCIA_REPARTO={
+ Caseificio:['caseificio','#C8973A'], Macellaio:['macellaio','#CD591E'], Pescheria:['pescheria','#4E7C6A'],
+ Panificio:['panificio','#A8703A'], Pane:['panificio','#A8703A'], Verdura:['verdure','#6D7633'],
+ Frigo:['frigo','#5E8570'], Dispensa:['dispensa','#8A8F5F'], Etnico:['etnico','#96565F'],
+ Casa:['casa','#7A725E'], Igiene:['bagno','#5C7360'], Altro:['lista','#7A725E']
+};
+function capoSezione(rep,conta){
+  const [i,col]=FACCIA_REPARTO[rep]||['lista','#7A725E'];
+  return '<div class="capo-sezione"><span class="quadretto" style="background:'+col+'1a;color:'+col+'">'+ico(i)+'</span>'+
+    '<h3>'+esc(rep)+'</h3>'+(conta!=null?'<span class="conta">'+conta+'</span>':'')+'</div>';
+}
+
+
+/* ---------- stagioni e feste ---------- */
+const MESI=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+function inStagione(p,mese){
+  if(!p||!p.st)return true;
+  const [a,b]=p.st;
+  return a<=b ? (mese>=a&&mese<=b) : (mese>=a||mese<=b);
+}
+function diStagione(mese){
+  return prodotti().filter(p=>p.st&&inStagione(p,mese));
+}
+function fuoriStagione(c,mese){
+  return c.ing.filter(i=>MAPPA[i]&&MAPPA[i].st&&!inStagione(MAPPA[i],mese));
+}
+function pasqua(anno){
+  const a=anno%19,b=Math.floor(anno/100),c=anno%100;
+  const d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3);
+  const i=(19*a+b-d-g+15)%30,k=Math.floor(c/4),l=c%4;
+  const m=(32+2*e+2*k-i-l)%7,n=Math.floor((a+11*i+22*m)/451);
+  const mese=Math.floor((i+m-7*n+114)/31),giorno=((i+m-7*n+114)%31)+1;
+  return new Date(anno,mese-1,giorno);
+}
+function feste(anno){
+  const p=pasqua(anno);
+  const pm=new Date(p);pm.setDate(pm.getDate()+1);
+  const iso=isoLocale;
+  return [
+   {d:anno+'-01-01',n:'Capodanno',s:'Lenticchie e cotechino, oppure quello che ti pare'},
+   {d:anno+'-01-06',n:'Epifania',s:'Pranzo lungo, cena leggera'},
+   {d:iso(p),n:'Pasqua',s:'Agnello al forno con patate, o benedetto se sei dai tuoi'},
+   {d:iso(pm),n:'Pasquetta',s:'Grigliata o teglia fredda da portare fuori'},
+   {d:anno+'-04-25',n:'25 aprile',s:'Ponte: controlla se i negozi sono chiusi'},
+   {d:anno+'-05-01',n:'Primo maggio',s:'Quasi tutto chiuso, fai scorta il giorno prima'},
+   {d:anno+'-05-08',n:'San Nicola',s:'Festa patronale di Bari, città in movimento'},
+   {d:anno+'-06-02',n:'Due giugno',s:'Festivo, negozi a orario ridotto'},
+   {d:anno+'-08-15',n:'Ferragosto',s:'Tutto chiuso: fai la spesa entro il 13'},
+   {d:anno+'-11-01',n:'Ognissanti',s:'Festivo, supermercati a orario ridotto'},
+   {d:anno+'-12-06',n:'San Nicola d\'inverno',s:'Festa a Bari'},
+   {d:anno+'-12-08',n:'Immacolata',s:'Inizio periodo natalizio'},
+   {d:anno+'-12-24',n:'Vigilia di Natale',s:'Cena di magro: pesce fresco, prenotalo prima'},
+   {d:anno+'-12-25',n:'Natale',s:'Tutto chiuso, spesa entro il 23'},
+   {d:anno+'-12-26',n:'Santo Stefano',s:'Avanzi, e sono i migliori'},
+   {d:anno+'-12-31',n:'Cenone',s:'Spesa fatta entro il 30'}
+  ];
+}
+function festaVicina(){
+  const oggi=new Date(oggiISO());
+  const anno=oggi.getFullYear();
+  const tutte=[...feste(anno),...feste(anno+1)];
+  for(const f of tutte){
+    const g=Math.round((new Date(f.d)-oggi)/86400000);
+    if(g>=0&&g<=10)return {...f,g:g};
+  }
+  return null;
+}
+
+/* ============ STATO ============ */
+const CHIAVE='cucina-bari-v1';   // invariata: non perdere i dati di chi usa gia' l'app
+let S={dispensa:{},settimana:{},lista:{},extra:[],modoLista:'mancante',pref:{},no:{},mie:[],mieiProd:[],storico:{},ordine:[],avanzi:{},conta:{},buttati:{},faccende:{},mieFaccende:[],sync:{url:'',key:''},ver:4};
+let ricercaCene='', ricercaDisp='';
+let vista='stasera', filtroDisp='tutto';
+let salvataggio=null;
+const MEM={};
+
+const archivio={
+  async leggi(k){
+    if(typeof window!=='undefined'&&window.storage&&window.storage.get){
+      try{const r=await window.storage.get(k);return r?r.value:null;}catch(e){return null;}
+    }
+    // se l'ultima scrittura è finita in memoria (quota piena, navigazione
+    // privata), è quella il dato buono: localStorage sarebbe vecchio.
+    if(k in MEM)return MEM[k];
+    try{return localStorage.getItem(k);}catch(e){return null;}
+  },
+  async scrivi(k,v){
+    if(typeof window!=='undefined'&&window.storage&&window.storage.set){
+      try{await window.storage.set(k,v);return;}catch(e){}
+    }
+    // se localStorage accetta, la copia in memoria non serve più e va tolta:
+    // altrimenti resterebbe lì a coprire il dato buono.
+    try{localStorage.setItem(k,v);delete MEM[k];}catch(e){MEM[k]=v;}
+  },
+  async cancella(k){
+    if(typeof window!=='undefined'&&window.storage&&window.storage.delete){
+      try{await window.storage.delete(k);}catch(e){}
+    }
+    delete MEM[k];
+    try{localStorage.removeItem(k);}catch(e){}
+  }
+};
+
+async function carica(){
+  const v=await archivio.leggi(CHIAVE);
+  if(!v)return;
+  try{S={...S,...JSON.parse(v)};}catch(e){/* dato illeggibile: riparto pulito */}
+}
+function salva(){
+  clearTimeout(salvataggio);
+  salvataggio=setTimeout(()=>archivio.scrivi(CHIAVE,JSON.stringify(S)),400);
+}
+/* Il salvataggio è ritardato di 400 ms per non scrivere a ogni tocco.
+   Se l'app viene chiusa o mandata in secondo piano prima, quel ritardo
+   costerebbe l'ultima modifica: qui lo si forza subito. */
+function salvaSubito(){
+  if(salvataggio===null)return;
+  clearTimeout(salvataggio);salvataggio=null;
+  // archivio.scrivi non ha await prima della scrittura: il salvataggio
+  // avviene subito, mentre la pagina si sta ancora chiudendo.
+  archivio.scrivi(CHIAVE,JSON.stringify(S));
+}
+window.addEventListener('pagehide',salvaSubito);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')salvaSubito();});
+
+const oggiISO=()=>isoLocale(new Date());
+const giorniDa=iso=>Math.floor((new Date(oggiISO())-new Date(iso))/86400000);
+const chiaveOggi=()=>GIORNI[new Date().getDay()];
+function stato(id){return (S.dispensa[id]&&S.dispensa[id].s)||null;}
+function disponibile(id){const s=stato(id);return s==='ok'||s==='poco';}
+function serveComprare(id){const s=stato(id);return s==='poco'||s==='finito';}
+/* Gli ingredienti che ti mancano davvero. Se la cena prevede una fermata,
+   il fresco lo prendi in bottega quel giorno e non conta come mancante.
+   Ingredienti sconosciuti (ricette importate) vengono ignorati, non fanno crollare la vista. */
+function mancanti(c){
+  const bottega=c.stop?REPARTO_STOP[c.stop]:null;
+  return (c.ing||[]).filter(i=>MAPPA[i]&&!disponibile(i)&&
+    !(bottega&&MAPPA[i].c==='giorno'&&MAPPA[i].r===bottega));
+}
+
+
+/* ---------- ordine delle corsie ---------- */
+const REPARTI_BASE=['Caseificio','Macellaio','Pescheria','Panificio','Pane','Verdura','Frigo','Dispensa','Etnico','Casa','Igiene','Altro'];
+function ordineReparti(){
+  const o=(S.ordine&&S.ordine.length)?S.ordine.slice():REPARTI_BASE.slice();
+  REPARTI_BASE.forEach(r=>{if(!o.includes(r))o.push(r);});
+  return o;
+}
+function spostaReparto(r,dir){
+  const o=ordineReparti();
+  const i=o.indexOf(r),j=i+dir;
+  if(i<0||j<0||j>=o.length)return;
+  [o[i],o[j]]=[o[j],o[i]];
+  S.ordine=o;salva();
+}
+
+/* ---------- piatti che rendono il doppio ---------- */
+function doppiaPorzione(c){
+  return c.m>=35||['zuppe','legumi'].includes(c.cat)||/rag|polpett|spezzatin|sugo|chili/i.test(c.n);
+}
+
+/* ---------- lista come testo ---------- */
+function listaTesto(){
+  const voci=vociLista().filter(v=>!S.lista[v.id]);
+  const gr={};voci.forEach(v=>{(gr[v.r]=gr[v.r]||[]).push(v.n);});
+  let t='Spesa — '+new Date().toLocaleDateString('it-IT')+'\n';
+  ordineReparti().forEach(r=>{
+    if(!gr[r])return;
+    t+='\n'+r.toUpperCase()+'\n'+gr[r].map(n=>'- '+n).join('\n')+'\n';
+  });
+  return t.trim();
+}
+async function copiaLista(){
+  const t=listaTesto();
+  try{await navigator.clipboard.writeText(t);return true;}
+  catch(e){return t;}
+}
+
+/* ---------- statistiche ---------- */
+function statistiche(){
+  const buttati=Object.entries(S.buttati||{}).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const comprati=Object.entries(S.conta||{}).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const sprechi=buttati.map(([id,n])=>({
+    n:(MAPPA[id]?MAPPA[id].n:id), b:n, c:(S.conta&&S.conta[id])||0
+  }));
+  return {sprechi:sprechi,comprati:comprati.map(([id,n])=>({n:(MAPPA[id]?MAPPA[id].n:id),c:n}))};
+}
+
+/* ---------- sincronizzazione Supabase (facoltativa) ---------- */
+async function sincronizza(verso){
+  const s=S.sync||{};
+  if(!s.url||!s.key)throw new Error('Mancano indirizzo e chiave');
+  const base=s.url.replace(/\/+$/,'')+'/rest/v1/cucina_stato';
+  const testa={'apikey':s.key,'Authorization':'Bearer '+s.key,'Content-Type':'application/json'};
+  if(verso==='su'){
+    const corpo=JSON.stringify([{id:'unico',dati:S,aggiornato:new Date().toISOString()}]);
+    const r=await fetch(base,{method:'POST',headers:{...testa,'Prefer':'resolution=merge-duplicates'},body:corpo});
+    if(!r.ok)throw new Error('Errore '+r.status);
+    return 'Caricato';
+  }else{
+    const r=await fetch(base+'?id=eq.unico&select=dati',{headers:testa});
+    if(!r.ok)throw new Error('Errore '+r.status);
+    const j=await r.json();
+    if(!j.length)throw new Error('Nessun dato salvato online');
+    S={...S,...j[0].dati};
+    aggiornaMappa();aggiornaCene();salva();
+    return 'Scaricato';
+  }
+}
+
+
+/* ---------- faccia del piatto: emoji e colore, generati dagli ingredienti ---------- */
+const EMOJI_ING={
+ uova:'🍳',pollo:'🍗',cosce:'🍗',fettine:'🥩',macinato:'🥩',braciole:'🥩',bombette:'🥩',salsiccia:'🌭',
+ wurstel:'🌭',spezzatino:'🍖',agnello:'🍖',coniglio:'🍖',costine:'🍖',tacchino:'🍗',fegato:'🍖',involtini:'🥩',
+ orata:'🐟',cozze:'🦪',gamberi:'🦐',calamari:'🦑',polpo:'🐙',seppie:'🦑',
+ mozzarella:'🧀',burrata:'🧀',stracciatella:'🧀',ricotta:'🧀',caciocavallo:'🧀',scamorza:'🧀',provola:'🧀',
+ pecorino:'🧀',grana:'🧀',gorgonzola:'🧀',brie:'🧀',feta:'🧀',nodini:'🧀',ricottaforte:'🧀',
+ pasta:'🍝',spaghetti:'🍝',orecchiette:'🍝',riso:'🍚',basmati:'🍚',risosushi:'🍙',farro:'🌾',
+ noodles:'🍜',ramen:'🍜',udon:'🍜',gyoza:'🥟',involtiniprimavera:'🥟',tofu:'🧊',
+ tortillas:'🌮',nachos:'🌮',fagiolineri:'🫘',guacamole:'🥑',hummuspronto:'🧆',
+ patate:'🥔',pomodori:'🍅',pomodorini:'🍅',passata:'🍅',pelati:'🍅',peperoni:'🫑',zucchine:'🥒',
+ cetrioli:'🥒',funghi:'🍄',broccoli:'🥦',cavolfiore:'🥦',carote:'🥕',cipolle:'🧅',aglio:'🧄',
+ insalata:'🥬',rucola:'🥬',spinaci:'🥬',cicoria:'🥬',verza:'🥬',radicchio:'🥬',zucca:'🎃',
+ carciofi:'🌿',asparagi:'🌿',finocchi:'🌿',fagiolini:'🌿',porri:'🌿',limoni:'🍋',lime:'🍋',
+ fagioli:'🫘',cannellini:'🫘',ceci:'🫘',lenticchie:'🫘',fave:'🫘',piselli:'🫛',
+ pane:'🍞',friselle:'🍞',focaccia:'🍞',taralli:'🥨',piadina:'🫓',basepizza:'🍕',
+ olive:'🫒',olio:'🫒',yogurt:'🥣',fruttasecca:'🥜',arachidi:'🥜',noci:'🥜'
+};
+const COLORE_CAT={
+ carne:'#CD591E',pesce:'#4E7C6A',uova:'#E4AC55',formaggi:'#C8973A',pasta:'#A8703A',
+ riso:'#8A8F5F',verdure:'#6D7633',patate:'#9A7B3D',legumi:'#7A725E',fredde:'#5E8570',
+ etnico:'#96565F',forno:'#B4562A',zuppe:'#5C7360'
+};
+function faccia(c){
+  let e='🍽️';
+  for(const i of (c.ing||[])){ if(EMOJI_ING[i]){e=EMOJI_ING[i];break;} }
+  if(e==='🍽️'){
+    const perCat={carne:'🥩',pesce:'🐟',uova:'🍳',formaggi:'🧀',pasta:'🍝',riso:'🍚',verdure:'🥬',
+      patate:'🥔',legumi:'🫘',fredde:'🍞',etnico:'🍜',forno:'🍕',zuppe:'🥣'};
+    e=perCat[c.cat]||'🍽️';
+  }
+  const CAT_ICO={carne:1,pasta:1,uova:1,formaggi:1,pesce:1,verdure:1,riso:1,legumi:1,patate:1,fredde:1,etnico:1,forno:1,zuppe:1};
+  return {e:e,col:COLORE_CAT[c.cat]||'#283A2A',ic:CAT_ICO[c.cat]?c.cat:'cene'};
+}
+
+/* ---------- faccende di casa ---------- */
+const FACCENDE=[
+ {id:'bucato',n:'Bucato',g:7,i:'bucato'},
+ {id:'lenzuola',n:'Cambio lenzuola',g:14,i:'letto'},
+ {id:'bagno',n:'Pulizia bagno',g:7,i:'bagno'},
+ {id:'pavimenti',n:'Pavimenti',g:7,i:'pulizia'},
+ {id:'polvere',n:'Spolverare',g:10,i:'pulizia'},
+ {id:'frigo',n:'Pulizia frigo',g:30,i:'frigo'},
+ {id:'forno',n:'Pulizia forno e friggitrice',g:30,i:'forno'},
+ {id:'cappa',n:'Filtro cappa',g:60,i:'aria'},
+ {id:'lavatrice',n:'Pulizia cestello lavatrice',g:60,i:'bucato'},
+ {id:'condizionatore',n:'Filtri condizionatore',g:90,i:'aria'},
+ {id:'spazzolino',n:'Cambio spazzolino',g:90,i:'bagno'},
+ {id:'asciugamani',n:'Cambio asciugamani',g:7,i:'bucato'},
+ {id:'differenziata',n:'Controllo calendario differenziata',g:30,i:'riciclo'},
+ {id:'scadenze',n:'Controllo scadenze dispensa',g:30,i:'tempo'}
+];
+function faccende(){return [...FACCENDE,...(S.mieFaccende||[])];}
+function statoFaccenda(f){
+  const u=(S.faccende||{})[f.id];
+  if(!u)return {g:null,cls:'',t:'mai segnata'};
+  const g=giorniDa(u);
+  const cls=g>f.g?'allarme':g>f.g*0.75?'attenzione':'';
+  return {g:g,cls:cls,t:g===0?'fatta oggi':g===1?'ieri':g+' giorni fa'};
+}
+
+/* ============ VISTA STASERA ============ */
+function renderStasera(){
+  const g=chiaveOggi();
+  const el=document.getElementById('vistaStasera');
+  if(FUORI.includes(g)){
+    el.innerHTML=`<div class="stasera">
+      <span class="fermata">🏠 Nessuna spesa</span>
+      <h2>Sei dai tuoi</h2>
+      <div class="meta">${NOMI_GG[g]} — pesce e riposo</div>
+      <p class="ing">Non comprare niente di fresco oggi.</p>
+    </div>`+settimanaHTML();
+    aggancia();return;
+  }
+  const c=S.settimana[g]?CENE_MAP[S.settimana[g]]:null;
+  let corpo;
+  if(!c){
+    corpo=`<span class="fermata">❓ Ancora niente</span>
+      <h2>Non hai deciso</h2>
+      <div class="meta">${NOMI_GG[g]}</div>
+      <p class="ing">Scegline una, oppure fatti sorprendere con quello che hai già in casa.</p>
+      <div class="azioni"><button class="pieno" data-az="scegli">Scegli la cena</button><button data-az="sorprendi">Sorprendimi</button></div>`;
+  }else{
+    const mancano=mancanti(c);
+    corpo=`<span class="fermata">${c.stop?icoStop(c.stop)+' Passa dal '+esc(c.stop):'🏠 Non ti fermi'}</span>
+      <h2>${esc(c.n)}</h2>
+      <div class="meta">${NOMI_GG[g]} · ${c.m===0?'zero fornelli':esc(c.m)+' minuti'}</div>
+      <p class="ing">${esc(c.ing.map(i=>MAPPA[i]?MAPPA[i].n:i).join(' · '))}</p>
+      ${mancano.length?`<p class="ing" style="opacity:.75">Ti manca: ${esc(mancano.map(i=>MAPPA[i].n.toLowerCase()).join(', '))}</p>`:''}
+      <div class="azioni"><button class="pieno" data-az="scegli">Cambiala</button><button data-az="sorprendi">Sorprendimi</button></div>`;
+  }
+  const av=avanziHTML()+bannerHTML();
+  const spesa=daComprare().filter(v=>!S.lista[v.id]);
+  el.innerHTML=
+    capoPagina()+
+    settimanaHTML()+
+    `<div class="cruscotto">
+       <div class="principale">
+         <div class="sezione pannello">${suggeriteHTML()}${scarseggiaHTML()}</div>
+         ${av?'<div class="avvisi">'+av+'</div>':''}
+       </div>
+       <aside class="lato">
+         <div class="stasera">${corpo}</div>
+         ${pannelloSpesa(spesa)}
+       </aside>
+     </div>`;
+  aggancia();
+}
+/* intestazione della pagina: titolo, settimana, azione principale — come nel branding */
+/* intestazione grande in cima a ogni vista */
+function capoVista(titolo,sotto,azione){
+  return `<div class="capo-pagina">
+    <div><h2>${esc(titolo)}</h2><div class="periodo">${esc(sotto)}</div></div>
+    ${azione||''}
+  </div>`;
+}
+function capoPagina(){
+  const o=new Date(), gio=(o.getDay()+6)%7;
+  const l=new Date(o); l.setDate(o.getDate()-gio);
+  const d=new Date(l); d.setDate(l.getDate()+6);
+  const fmt=x=>x.toLocaleDateString('it-IT',{day:'numeric',month:'long'});
+  return `<div class="capo-pagina">
+    <div>
+      <h2>Questa settimana</h2>
+      <div class="periodo">${esc(fmt(l))} – ${esc(fmt(d))}</div>
+    </div>
+    <button class="pillola" id="btnSuper">${ico('lista','mini')} Modalità supermercato</button>
+  </div>`;
+}
+/* tre cene che puoi fare adesso con quello che hai in casa */
+function suggeriteHTML(){
+  const l=applicaFiltro(cene().filter(c=>!S.no[c.id]),'pronte').sort((a,b)=>a.m-b.m).slice(0,3);
+  if(!l.length)return '';
+  return `<div class="capo-blocco"><h3>Puoi farle adesso</h3><button class="vedi" data-cat="pronte">Vedi tutte</button></div>
+    <div class="schede">${l.map(schedaHTML).join('')}</div>`;
+}
+/* cosa sta finendo in dispensa */
+function scarseggiaHTML(){
+  const l=prodotti().filter(p=>serveComprare(p.id)).slice(0,5);
+  if(!l.length)return '';
+  return `<div class="divisorio"></div><div class="capo-blocco"><h3>Sta finendo</h3><button class="vedi" data-vai="dispensa">Vedi tutto</button></div>
+    <div class="mini">${l.map(p=>{
+      const [i,col]=FACCIA_REPARTO[p.r]||['lista','#7A725E'];
+      return `<div class="minicarta">
+        <span class="quadro" style="background:${col}14;border-color:${col}2b;color:${col}">${ico(i,'media')}</span>
+        <span class="n">${esc(p.n)}</span>
+        <span class="d">${stato(p.id)==='finito'?'Finito':'Quasi finito'}</span>
+      </div>`;}).join('')}</div>`;
+}
+/* la lista della spesa, raccolta in un pannello a fianco */
+function pannelloSpesa(voci){
+  const gr={}; voci.forEach(v=>{(gr[v.r]=gr[v.r]||[]).push(v);});
+  let h=`<div class="sezione pannello">
+    <h3 class="tit-pannello">Lista della spesa</h3>
+    <div class="capo-pannello"><span class="conta">${voci.length} ${voci.length===1?'articolo':'articoli'}</span><span class="conta">per corsia</span></div>`;
+  if(!voci.length){
+    h+=`<div class="vuoto-stato" style="padding:22px 6px">Non manca niente.</div></div>`;return h;
+  }
+  ordineReparti().forEach(rep=>{
+    if(!gr[rep])return;
+    const [i,col]=FACCIA_REPARTO[rep]||['lista','#7A725E'];
+    h+=`<div class="gruppo">
+      <div class="capo-gruppo"><span class="quadretto" style="background:${col}1a;color:${col}">${ico(i)}</span>
+        <span class="et">${esc(rep)}</span></div>`;
+    gr[rep].forEach(v=>{
+      const q=v.tag==='finito'?'finito':v.tag==='poco'?'poco':v.tag==='cena'?'per la cena':'aggiunto';
+      h+=`<button class="vocespesa" data-spunta="${esc(v.id)}" aria-pressed="false">
+        <span class="n">${esc(v.n)}</span>
+        <span class="q">${q}</span>
+        <span class="cerchio" aria-hidden="true"></span>
+      </button>`;
+    });
+    h+=`</div>`;
+  });
+  h+=`<button class="vedi tutta" data-vai="lista">Apri la lista intera</button></div>`;
+  return h;
+}
+/* un avanzo vale due giorni: dopo non è più un avanzo, è un rischio */
+function avanzoFresco(cid){
+  const d=(S.avanzi||{})[cid];
+  return !!d&&giorniDa(d)<=2;
+}
+function avanziHTML(){
+  const a=Object.entries(S.avanzi||{}).filter(([id,d])=>giorniDa(d)<=2&&CENE_MAP[id]);
+  if(!a.length)return '';
+  return `<div class="avviso">
+    <div class="et">Hai degli avanzi</div>
+    <div class="tx">${a.map(([id,d])=>esc(CENE_MAP[id].n)+(giorniDa(d)===0?' (di oggi)':giorniDa(d)===1?' (di ieri)':' (di 2 giorni fa)')).join(' · ')}. Stasera non cucini.</div>
+  </div>`;
+}
+function bannerHTML(){
+  const mese=new Date().getMonth()+1;
+  const s=diStagione(mese).map(p=>p.n.toLowerCase().split(' ')[0]);
+  const f=festaVicina();
+  let h='';
+  if(f){
+    const quando=f.g===0?'oggi':f.g===1?'domani':'fra '+f.g+' giorni';
+    h+=`<div class="avviso">
+      <div class="et">${f.n} · ${quando}</div>
+      <div class="tx">${f.s}</div>
+    </div>`;
+  }
+  if(s.length){
+    h+=`<div class="avviso chiaro">
+      <div class="et">Di stagione a ${MESI[mese-1]}</div>
+      <div class="tx">${esc(s.join(' · '))}</div>
+    </div>`;
+  }
+  return h;
+}
+function settimanaHTML(){
+  const oggi=chiaveOggi();
+  const fermate=['lun','mar','mer','gio','ven','sab','dom']
+    .filter(g=>S.settimana[g]&&CENE_MAP[S.settimana[g]]&&CENE_MAP[S.settimana[g]].stop).length;
+  let h='';
+  h+='<div class="settimana">';
+  ['lun','mar','mer','gio','ven','sab','dom'].forEach(g=>{
+    if(FUORI.includes(g)){
+      h+=`<div class="giorno fuori"><span class="gg">${g}</span><span class="nome">Dai tuoi</span></div>`;return;
+    }
+    const c=S.settimana[g]?CENE_MAP[S.settimana[g]]:null;
+    const f=c?faccia(c):null;
+    const num=new Date(); num.setDate(num.getDate()+(['lun','mar','mer','gio','ven','sab','dom'].indexOf(g)-(new Date().getDay()+6)%7));
+    h+=`<button class="giorno ${g===oggi?'oggi':''}" data-gg="${g}">
+      <span class="gg">${NOMI_GG[g].slice(0,3)} ${num.getDate()}</span>
+      <span class="quadro ${f&&FOTO_CAT.has(f.ic)?'confoto':''}" ${f?`style="background:${f.col}14;border-color:${f.col}2b;color:${f.col}"`:''}>${f?riquadro(f,'media'):ico('piu')}</span>
+      <span class="nome ${c?'':'vuoto'}">${c?esc(c.n):'Da decidere'}</span>
+      <span class="pin">${c&&c.stop?icoStop(c.stop):''}</span>
+    </button>`;
+  });
+  h+='</div>';
+  return h;
+}
+
+/* ============ VISTA LISTA ============ */
+function extraLista(){
+  return S.extra.map(e=>({id:e.id,n:e.n,r:e.r||'Altro',tag:'mano',auto:false}));
+}
+/* Il campo di ricerca conserva quello che hai scritto (spazi e maiuscole
+   compresi): è qui che il testo viene normalizzato per il confronto. */
+const cercaNorm=t=>String(t||'').trim().toLowerCase();
+/* Quello che hai spuntato, comunque tu sia arrivato a spuntarlo. Il bottone
+   "ho comprato" conta questo e agisce esattamente su questo. */
+function nelCarrello(){
+  return Object.keys(S.lista).filter(id=>MAPPA[id]||S.extra.some(e=>e.id===id));
+}
+/* Quello che serve davvero: finito, quasi finito, richiesto dalle cene della
+   settimana, o aggiunto a mano. Non dipende dalla modalità di visualizzazione:
+   è questo che conta per il pallino di avviso sulla lista. */
+function daComprare(){
+  const auto=prodotti().filter(p=>serveComprare(p.id)).map(p=>({
+    id:p.id,n:p.n,r:p.r,tag:stato(p.id),auto:true
+  }));
+  const ing=new Set();
+  Object.values(S.settimana).forEach(cid=>{
+    const c=CENE_MAP[cid];if(!c)return;
+    c.ing.forEach(i=>{
+      if(!MAPPA[i]||MAPPA[i].c!=='giorno')return;
+      // il fresco si compra il giorno stesso: se l'hai preso oggi, non serve più
+      const d=S.dispensa[i];
+      if(d&&d.s==='ok'&&d.da===oggiISO())return;
+      ing.add(i);
+    });
+  });
+  const daCene=[...ing].filter(i=>!auto.some(a=>a.id===i)).map(i=>({
+    id:i,n:MAPPA[i].n,r:MAPPA[i].r,tag:'cena',auto:true
+  }));
+  return [...auto,...daCene,...extraLista()];
+}
+function vociLista(){
+  if(S.modoLista==='mancante')return daComprare();
+  return [...prodotti().map(p=>({id:p.id,n:p.n,r:p.r,tag:stato(p.id),auto:true})),...extraLista()];
+}
+function renderLista(){
+  const voci=vociLista();
+  const gruppi={};
+  voci.forEach(v=>{(gruppi[v.r]=gruppi[v.r]||[]).push(v);});
+  const ordine=ordineReparti();
+  const daPrendere=daComprare().filter(v=>!S.lista[v.id]).length;
+  let h=capoVista('Lista della spesa', daPrendere?daPrendere+(daPrendere===1?' cosa da prendere':' cose da prendere'):'non manca niente',
+    '<button class="pillola vai-super">'+ico('lista','mini')+' Modalità supermercato</button>')+
+  `<div class="filtri">
+    <button data-ml="tutto" class="${S.modoLista!=='mancante'?'on':''}">Lista completa</button>
+    <button data-ml="mancante" class="${S.modoLista==='mancante'?'on':''}">Solo quello che manca</button>
+  </div>
+  <div class="aggiungi">
+    <input id="inputExtra" placeholder="Aggiungi una cosa…" autocomplete="off" aria-label="Aggiungi una cosa alla lista">
+    <button id="btnExtra" aria-label="Aggiungi alla lista">+</button>
+  </div>`;
+  if(!voci.length){
+    h+=`<div class="vuoto-stato">Non manca niente.<br>Passa a "Lista completa" per vedere tutto.</div>`;
+  }
+  h+='<div class="sezioni">';
+  ordine.forEach(rep=>{
+    if(!gruppi[rep])return;
+    const sub={Caseificio:'Il giorno stesso, tornando dal lavoro',Macellaio:'Il giorno stesso, mai in anticipo',Panificio:'Il giorno stesso'}[rep]||'';
+    h+='<div class="sezione">'+capoSezione(rep,gruppi[rep].length)+(sub?`<p class="sub">${sub}</p>`:'');
+    gruppi[rep].forEach(v=>{
+      const presa=!!S.lista[v.id];
+      const tagHTML=v.tag==='finito'?'<span class="tag finito">Finito</span>'
+        :v.tag==='poco'?'<span class="tag poco">Poco</span>'
+        :v.tag==='ok'?'<span class="tag pronta">Ce l\'hai</span>'
+        :v.tag==='cena'?'<span class="tag mano">Per la cena</span>'
+        :v.tag==='mano'?'<span class="tag mano">Aggiunto</span>':'';
+      h+=`<div class="riga ${presa?'presa':''}">
+        <button class="spunta-riga" data-spunta="${esc(v.id)}" aria-pressed="${presa}">
+          <span class="etichetta">${esc(v.n)}</span>
+          ${tagHTML}
+          <span class="cerchio" aria-hidden="true">${presa?ico('pronte'):''}</span>
+        </button>
+        ${v.auto?'':`<button class="elimina" data-rimuovi="${esc(v.id)}" aria-label="Togli ${esc(v.n)}">×</button>`}
+      </div>`;
+    });
+    h+=`</div>`;
+  });
+  h+='</div>';
+  const prese=nelCarrello().length;
+  h+=`<button class="riga" id="btnCopia" style="justify-content:center;font-weight:700;margin-bottom:10px">Copia la lista come testo</button>`;
+  h+=`<button class="fine-spesa" id="btnFineSpesa" ${prese?'':'disabled'}>
+    ${prese?`Ho comprato ${prese} ${prese===1?'cosa':'cose'} — metti in dispensa`:'Spunta quello che metti nel carrello'}
+  </button>`;
+  document.getElementById('vistaLista').innerHTML=h;
+  aggancia();
+}
+
+/* ============ VISTA DISPENSA ============ */
+function renderDispensa(){
+  const f=[['tutto','Tutto'],['giorno','Del giorno'],['frigo','Frigo'],['verdura','Verdura'],['dispensa','Dispensa'],['casa','Casa']];
+  const inCasa=prodotti().filter(p=>stato(p.id)==='ok').length;
+  let h=capoVista('Dispensa', inCasa+' su '+prodotti().length+' prodotti in casa',
+    '<button class="pillola" id="btnMioProdotto">'+ico('piu','mini')+' Aggiungi</button>')+
+  `<div class="aggiungi">
+    <input id="cercaDisp" placeholder="Cerca un prodotto…" value="${esc(ricercaDisp)}" autocomplete="off" aria-label="Cerca un prodotto nella dispensa">
+
+  </div>
+  <div class="filtri">${f.map(([k,e])=>`<button data-fd="${k}" class="${filtroDisp===k?'on':''}">${e}</button>`).join('')}</div>`;
+  const scaduti=prodotti().filter(p=>p.d>0&&stato(p.id)==='ok'&&S.dispensa[p.id].da&&giorniDa(S.dispensa[p.id].da)>p.d);
+  if(scaduti.length&&filtroDisp==='tutto'){
+    h+=`<div class="sezione"><h3>Da controllare subito</h3><p class="sub">In casa da più giorni del previsto — guardalo prima che finisca nella spazzatura.</p>
+      ${scaduti.map(p=>rigaProdotto(p)).join('')}</div>`;
+  }
+  const q=cercaNorm(ricercaDisp);
+  const lista=prodotti().filter(p=>(filtroDisp==='tutto'||p.c===filtroDisp)&&(!q||p.n.toLowerCase().includes(q)));
+  const gruppi={};
+  lista.forEach(p=>{(gruppi[p.r]=gruppi[p.r]||[]).push(p);});
+  h+='<div class="sezioni">';
+  Object.keys(gruppi).forEach(r=>{
+    h+='<div class="sezione">'+capoSezione(r,gruppi[r].length)+gruppi[r].map(p=>rigaProdotto(p)).join('')+'</div>';
+  });
+  h+='</div>';
+  document.getElementById('vistaDispensa').innerHTML=h;
+  aggancia();
+}
+function rigaProdotto(p){
+  const s=stato(p.id);
+  const da=S.dispensa[p.id]&&S.dispensa[p.id].da;
+  let nota='';
+  if(s==='ok'&&da&&p.d>0){
+    const g=giorniDa(da);
+    const cls=g>p.d?'allarme':g>p.d*0.7?'attenzione':'';
+    nota=`<div class="g ${cls}">${g===0?'Comprato oggi':'In casa da '+g+(g===1?' giorno':' giorni')}${g>p.d?' · controllalo':''}</div>`;
+  }
+  const id=esc(p.id), nome=esc(p.n);
+  return `<div class="riga">
+    <div class="voce"><div class="n">${nome}</div>${nota}</div>
+    <div class="stati">
+      <button data-st="${id}" data-s="ok" class="${s==='ok'?'on':''}" aria-pressed="${s==='ok'}" aria-label="${nome}: c'è">C'è</button>
+      <button data-st="${id}" data-s="poco" class="${s==='poco'?'on':''}" aria-pressed="${s==='poco'}" aria-label="${nome}: poco">Poco</button>
+      <button data-st="${id}" data-s="finito" class="${s==='finito'?'on':''}" aria-pressed="${s==='finito'}" aria-label="${nome}: finito">Finito</button>
+      <button data-butta="${id}" title="L'ho buttato" aria-label="Ho buttato ${nome}">🗑</button>
+    </div>
+  </div>`;
+}
+
+/* ============ VISTA CENE ============ */
+function fattibile(c){
+  const bottega=c.stop?REPARTO_STOP[c.stop]:null;
+  return (c.ing||[]).every(i=>{
+    const p=MAPPA[i];if(!p)return true;
+    // il fresco della bottega in cui ti fermi lo dai per preso; il resto no
+    if(p.c==='giorno'&&bottega&&p.r===bottega)return true;
+    return disponibile(i);
+  });
+}
+const CATEGORIE=[
+ {k:'carne',e:'Carne',i:'carne'},{k:'pasta',e:'Pasta',i:'pasta'},{k:'uova',e:'Uova',i:'uova'},
+ {k:'etnico',e:'Etnico',i:'etnico'},{k:'verdure',e:'Verdure',i:'verdure'},{k:'formaggi',e:'Formaggi',i:'formaggi'},
+ {k:'fredde',e:'Senza cuocere',i:'fredde'},{k:'riso',e:'Riso e farro',i:'riso'},{k:'legumi',e:'Legumi',i:'legumi'},
+ {k:'patate',e:'Patate',i:'patate'},{k:'pesce',e:'Pesce',i:'pesce'},{k:'forno',e:'Forno e pizza',i:'forno'},
+ {k:'zuppe',e:'Zuppe',i:'zuppe'}
+];
+const SCORCIATOIE=[
+ {k:'pronte',e:'Con quello che ho',i:'pronte'},{k:'stagione',e:'Di stagione',i:'stagione'},
+ {k:'veloci',e:'Sotto 15 min',i:'veloci'},{k:'pref',e:'Preferiti',i:'pref'},
+ {k:'ff',e:'Friggitrice',i:'ff'},{k:'casa',e:'Senza fermarti',i:'casa'}
+];
+let catAperta=null;
+
+function candidate(){
+  let l=cene().filter(c=>!S.no[c.id]);
+  const q=cercaNorm(ricercaCene);
+  if(q){
+    l=l.filter(c=>c.n.toLowerCase().includes(q)||
+      c.ing.some(i=>MAPPA[i]&&MAPPA[i].n.toLowerCase().includes(q))||
+      (PROC[c.id]||'').toLowerCase().includes(q));
+  }
+  return l;
+}
+function applicaFiltro(l,k){
+  const mese=new Date().getMonth()+1;
+  if(k==='pronte')return l.filter(c=>!c.stop&&fattibile(c));
+  if(k==='stagione')return l.filter(c=>fuoriStagione(c,mese).length===0&&c.ing.some(i=>MAPPA[i]&&MAPPA[i].st));
+  if(k==='veloci')return l.filter(c=>c.m<=15);
+  if(k==='pref')return l.filter(c=>S.pref[c.id]);
+  if(k==='ff')return l.filter(c=>c.ff);
+  if(k==='casa')return l.filter(c=>!c.stop);
+  if(k==='scartati')return cene().filter(c=>S.no[c.id]);
+  return l.filter(c=>c.cat===k);
+}
+function schedaHTML(c){
+  const mese=new Date().getMonth()+1;
+  const pronta=fattibile(c);
+  const fs_=fuoriStagione(c,mese);
+  const gg=S.storico[c.id]?giorniDa(S.storico[c.id]):null;
+  const f=faccia(c);
+  return `<button class="cena" data-apri="${esc(c.id)}">
+    <div class="ritratto ${FOTO_CAT.has(f.ic)?'confoto':''}" style="background:${f.col}14;border-color:${f.col}2b;color:${f.col}">${riquadro(f,'grande')}</div>
+    <div class="corpo">
+      <div class="intestazione">
+        <h4>${S.pref[c.id]?'<span class="stellina">'+ico('stella','mini')+'</span>':''}${esc(c.n)}</h4>
+        <span class="durata">${c.m===0?'0′':esc(c.m)+'′'}</span>
+      </div>
+      <div class="piedecarta"><span class="min">${c.m===0?'senza fornelli':esc(c.m)+' min'}${c.ff?' · friggitrice':''}</span>${S.pref[c.id]?'<span class="cuore attivo">'+ico('stella','mini')+'</span>':''}</div>
+      <div class="segni">
+        ${c.stop?`<span class="tag dove">${icoStop(c.stop)}</span>`:''}
+        ${c.ff?'<span class="tag dove">🌀</span>':''}
+        ${pronta?'<span class="tag pronta">ce l\'hai</span>':''}
+        ${fs_.length?'<span class="tag poco">fuori stagione</span>':''}
+        ${doppiaPorzione(c)?'<span class="tag mano">rende doppio</span>':''}
+        ${avanzoFresco(c.id)?'<span class="tag poco">avanzato</span>':''}
+        ${gg!==null&&gg<=6?`<span class="tag manca">${gg===0?'oggi':gg+'gg fa'}</span>`:''}
+      </div>
+    </div>
+  </button>`;
+}
+function gruppiTempo(l){
+  const b=[['Lampo, sotto i 10 minuti',c=>c.m<10],
+           ['Veloci, 10-20 minuti',c=>c.m>=10&&c.m<=20],
+           ['Mezz\'ora scarsa, 21-35 minuti',c=>c.m>20&&c.m<=35],
+           ['Ci vuole tempo, oltre 35 minuti',c=>c.m>35]];
+  let h='';
+  b.forEach(([tit,f])=>{
+    const g=l.filter(f).sort((a,b)=>a.m-b.m);
+    if(!g.length)return;
+    h+=`<div class="titoletto"><span>${tit}</span><span>${g.length}</span></div>`;
+    h+='<div class="schede">'+g.map(schedaHTML).join('')+'</div>';
+  });
+  return h;
+}
+function renderCene(){
+  let h=capoVista('Cene', cene().filter(c=>!S.no[c.id]).length+' piatti fra cui scegliere',
+    '<button class="pillola" id="btnMiaRicetta">'+ico('piu','mini')+' Aggiungi</button>')+
+  `<div class="aggiungi">
+    <input id="cercaCene" placeholder="Cerca piatto o ingrediente…" value="${esc(ricercaCene)}" autocomplete="off" aria-label="Cerca un piatto o un ingrediente">
+
+  </div>`;
+
+  if(cercaNorm(ricercaCene)){
+    const l=candidate();
+    h+=`<div class="titoletto"><span>${l.length} risultati per "${esc(ricercaCene)}"</span><button id="pulisci" class="tag mano">pulisci</button></div>`;
+    h+=l.length?gruppiTempo(l):'<div class="vuoto-stato">Nessun piatto con questo nome o ingrediente.</div>';
+  }else if(catAperta){
+    const tutte=applicaFiltro(cene().filter(c=>!S.no[c.id]),catAperta);
+    const eti=[...CATEGORIE,...SCORCIATOIE,{k:'scartati',e:'Cestino',i:'cestino'}].find(x=>x.k===catAperta);
+    h+=`<button class="indietro" id="torna">← Tutte le categorie</button>
+      <div class="titolone">${eti?ico(eti.i,'media')+'<span class="nome-cat">'+esc(eti.e)+'</span>':esc(catAperta)}<span>${tutte.length}</span></div>`;
+    h+=tutte.length?gruppiTempo(tutte):'<div class="vuoto-stato">Vuoto per ora.</div>';
+  }else{
+    const base=cene().filter(c=>!S.no[c.id]);
+    h+='<div class="titoletto"><span>Scorciatoie</span></div><div class="griglia">';
+    SCORCIATOIE.forEach(s=>{
+      const n=applicaFiltro(base,s.k).length;
+      h+=`<button class="piastrella scorc" data-cat="${s.k}">${ico(s.i)}<span class="et">${s.e}</span><span class="num">${n}</span></button>`;
+    });
+    h+='</div>';
+    h+=`<div class="titoletto"><span>Categorie</span><span>${base.length} piatti</span></div><div class="griglia">`;
+    CATEGORIE.forEach(c=>{
+      const n=base.filter(x=>x.cat===c.k).length;
+      if(!n)return;
+      h+=`<button class="piastrella" data-cat="${c.k}">${ico(c.i)}<span class="et">${c.e}</span><span class="num">${n}</span></button>`;
+    });
+    h+='</div>';
+    const scart=cene().filter(c=>S.no[c.id]).length;
+    if(scart)h+=`<button class="riga" data-cat="scartati" style="justify-content:center;margin-top:14px"><span class="etichetta" style="flex:none">🗑 Cestino (${scart})</span></button>`;
+    h+='<div style="height:24px"></div>';
+  }
+  document.getElementById('vistaCene').innerHTML=h;
+  aggancia();
+}
+
+
+/* ---------- modalità cucina ---------- */
+let cronometro=null, restanti=0, passiFatti={};
+function fermaCronometro(){
+  if(cronometro){clearInterval(cronometro);cronometro=null;}
+}
+function passi(c){
+  const t=PROC[c.id]||c.note||'';
+  if(!t)return [];
+  const frasi=t.split(/(?<=\.)\s+/).map(s=>s.trim()).filter(Boolean);
+  const out=[];
+  frasi.forEach(function(fr){
+    if(fr.length<=70){out.push(fr);return;}
+    const pezzi=fr.split(', ');
+    let buf='';
+    pezzi.forEach(function(p,i){
+      buf=buf?buf+', '+p:p;
+      const ultimo=i===pezzi.length-1;
+      if(buf.length>=32||ultimo){
+        let s=buf.trim();
+        s=s.charAt(0).toUpperCase()+s.slice(1);
+        if(!/[.!?]$/.test(s))s+='.';
+        out.push(s);
+        buf='';
+      }
+    });
+  });
+  return out;
+}
+function fmt(s){
+  const m=Math.floor(s/60), r=s%60;
+  return String(m).padStart(2,'0')+':'+String(r).padStart(2,'0');
+}
+function foglioCucina(cid){
+  const c=CENE_MAP[cid];if(!c)return;
+  fermaCronometro();
+  passiFatti={};
+  restanti=(c.m||10)*60;
+  disegnaCucina(c);
+}
+function disegnaCucina(c){
+  const p=passi(c);
+  const f=faccia(c);
+  apriFoglio(`
+    <div class="ritrattone ${FOTO_CAT.has(f.ic)?'confoto':''}" style="background:${f.col}14;border-color:${f.col}2b;color:${f.col}">${riquadro(f,'enorme')}</div>
+    <h3>${esc(c.n)}</h3>
+    <div class="cronometro">
+      <div class="t" id="oro">${fmt(restanti)}</div>
+      <div class="c">${cronometro?'in corso':'tempo indicativo'}</div>
+      <div class="az">
+        <button id="avvia">${cronometro?'Pausa':'Avvia'}</button>
+        <button id="azzeraOro">Azzera</button>
+      </div>
+    </div>
+    ${c.ing.length?'<div class="titoletto"><span>Prepara prima</span></div>'+c.ing.map(i=>MAPPA[i]?'<span class="tag mano" style="margin:0 4px 4px 0;display:inline-block">'+esc(MAPPA[i].n)+'</span>':'').join(''):''}
+    <div class="titoletto"><span>${p.length} passaggi</span><span>tocca per spuntare</span></div>
+    ${p.map((t,i)=>`<button class="passo ${passiFatti[i]?'fatto':''}" data-passo="${i}" aria-pressed="${!!passiFatti[i]}">
+      <span class="num">${i+1}</span><span class="tx">${esc(t)}</span>
+    </button>`).join('')}
+    <button class="fine-spesa" id="finitoCucina" style="margin-top:14px">Ho finito</button>
+  `);
+  const tic=()=>{
+    if(restanti>0)restanti--;
+    const o=document.getElementById('oro');
+    if(o)o.textContent=fmt(restanti);
+    if(restanti<=0){clearInterval(cronometro);cronometro=null;}
+  };
+  const g=(id,fn)=>{const e=document.getElementById(id);if(e)e.onclick=fn;};
+  g('avvia',()=>{
+    if(cronometro)fermaCronometro();
+    else cronometro=setInterval(tic,1000);
+    disegnaCucina(c);
+  });
+  g('azzeraOro',()=>{
+    fermaCronometro();
+    restanti=(c.m||10)*60;disegnaCucina(c);
+  });
+  g('finitoCucina',()=>{
+    S.storico[c.id]=oggiISO();salva();chiudiFoglio();renderTutto();
+  });
+  document.querySelectorAll('[data-passo]').forEach(b=>b.onclick=()=>{
+    const i=b.dataset.passo;
+    if(passiFatti[i])delete passiFatti[i];else passiFatti[i]=true;
+    disegnaCucina(c);
+  });
+}
+
+/* ---------- modalità supermercato ---------- */
+function apriSupermercato(){
+  if(document.getElementById('spesaGrande'))return;
+  const box=document.createElement('div');
+  box.className='spesaGrande';box.id='spesaGrande';
+  document.body.appendChild(box);
+  const chiudi=document.createElement('button');
+  chiudi.className='chiudiGrande';chiudi.id='chiudiGrande';chiudi.textContent='Esci dal supermercato';
+  document.body.appendChild(chiudi);
+  chiudi.onclick=()=>{box.remove();chiudi.remove();renderTutto();};
+  disegnaSupermercato();
+}
+function disegnaSupermercato(){
+  const box=document.getElementById('spesaGrande');
+  if(!box)return;
+  const voci=vociLista();
+  const prese=nelCarrello().length;
+  const perc=voci.length?Math.round(prese/voci.length*100):0;
+  const gr={};voci.forEach(v=>{if(!S.lista[v.id])(gr[v.r]=gr[v.r]||[]).push(v);});
+  let h=`<div class="capo"><h2>Al supermercato</h2>
+    <span class="tag mano">${prese}/${voci.length}</span></div>
+    <div class="barra"><i style="width:${perc}%"></i></div>`;
+  const vuoto=Object.keys(gr).length===0;
+  if(vuoto){
+    h+='<div class="vuoto-stato">Preso tutto.<br>Esci e premi "metti in dispensa".</div>';
+  }
+  ordineReparti().forEach(r=>{
+    if(!gr[r])return;
+    h+=`<div class="titoletto"><span>${esc(r)}</span><span>${gr[r].length}</span></div>`;
+    gr[r].forEach(v=>{
+      h+=`<button class="rigona" data-grande="${esc(v.id)}" aria-pressed="false">
+        <span class="etichetta">${esc(v.n)}</span><span class="cerchio" aria-hidden="true"></span>
+      </button>`;
+    });
+  });
+  const presi=voci.filter(v=>S.lista[v.id]);
+  if(presi.length){
+    h+=`<div class="titoletto"><span>Nel carrello</span><span>${presi.length}</span></div>`;
+    presi.forEach(v=>{
+      h+=`<button class="rigona presa" data-grande="${esc(v.id)}" style="opacity:.55" aria-pressed="true">
+        <span class="etichetta" style="text-decoration:line-through">${esc(v.n)}</span>
+        <span class="cerchio" style="background:var(--oliva);border-color:var(--oliva)" aria-hidden="true">${ico('pronte')}</span>
+      </button>`;
+    });
+  }
+  box.innerHTML=h;
+  document.querySelectorAll('[data-grande]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.grande;
+    if(S.lista[id])delete S.lista[id];else S.lista[id]=true;
+    salva();disegnaSupermercato();
+  });
+}
+
+/* ---------- vista Casa ---------- */
+function renderCasa(){
+  const f=faccende();
+  const scadute=f.filter(x=>{const s=statoFaccenda(x);return s.g!==null&&s.g>x.g;});
+  let h=capoVista('Casa', scadute.length?scadute.length+(scadute.length===1?' faccenda in ritardo':' faccende in ritardo'):'tutto in regola','');
+  if(scadute.length){
+    h+=`<div class="avviso"><div class="et">Da fare adesso</div>
+      <div class="tx">${esc(scadute.map(x=>x.n.toLowerCase()).join(' · '))}</div></div>`;
+  }
+  h+='<div class="titoletto"><span>Faccende</span><span>tocca per segnare fatta</span></div><div class="faccende">';
+  f.forEach(x=>{
+    const s=statoFaccenda(x);
+    const nome=esc(x.n), fid=esc(x.id);
+    h+=`<div class="riga">
+      <span class="pastiglia">${ico(x.i||'casa')}</span>
+      <div class="voce"><div class="n">${nome}</div>
+        <div class="g ${s.cls}">${esc(s.t)} · ogni ${esc(x.g)} giorni</div></div>
+      <button class="icona" data-fatta="${fid}" aria-label="Segna ${nome} come fatta oggi">✓</button>
+      ${x.mia?`<button class="elimina" data-toglifac="${fid}" aria-label="Togli ${nome}">×</button>`:''}
+    </div>`;
+  });
+  h+='</div>';
+  h+=`<div class="aggiungi" style="margin-top:12px">
+    <input id="nuovaFacc" placeholder="Aggiungi una faccenda…" autocomplete="off" aria-label="Nome della nuova faccenda">
+    <input id="nuovaFaccG" type="number" inputmode="numeric" min="1" placeholder="gg" value="7" style="max-width:78px" aria-label="Ogni quanti giorni">
+    <button id="addFacc" aria-label="Aggiungi la faccenda">+</button>
+  </div>`;
+  h+='<div class="titoletto"><span>Scorte di casa</span></div>';
+  const casa=prodotti().filter(p=>p.c==='casa');
+  const gr={};casa.forEach(p=>{(gr[p.r]=gr[p.r]||[]).push(p);});
+  h+='<div class="sezioni">';
+  Object.keys(gr).forEach(r=>{
+    h+='<div class="sezione">'+capoSezione(r,gr[r].length)+gr[r].map(p=>rigaProdotto(p)).join('')+'</div>';
+  });
+  h+='</div><div style="height:20px"></div>';
+  document.getElementById('vistaCasa').innerHTML=h;
+  aggancia();
+}
+
+/* ============ FOGLIO ============ */
+function apriFoglio(html){
+  const f=document.getElementById('foglio');
+  f.innerHTML=html;
+  document.getElementById('velo').classList.add('aperto');
+  requestAnimationFrame(()=>f.classList.add('aperto'));
+  aggancia();
+}
+function chiudiFoglio(){
+  fermaCronometro();
+  document.getElementById('foglio').classList.remove('aperto');
+  document.getElementById('velo').classList.remove('aperto');
+}
+function foglioScelta(g){
+  const l=cene().filter(c=>!S.no[c.id]).sort((a,b)=>
+    (!!a.stop-!!b.stop)||(fattibile(b)-fattibile(a))||a.m-b.m);
+  apriFoglio(`<h3>Cosa mangi ${g===chiaveOggi()?'stasera':NOMI_GG[g].toLowerCase()}</h3>
+    ${S.settimana[g]?`<button class="scelta" data-assegna="${g}|"><span class="n">Togli la cena</span><span class="d">—</span></button>`:''}
+    ${l.map(c=>`<button class="scelta" data-assegna="${esc(g)}|${esc(c.id)}">
+      <span class="n">${esc(c.n)}</span>
+      <span class="d">${c.stop?icoStop(c.stop)+' ':''}${fattibile(c)?'✓ ':''}${esc(c.m)}′</span>
+    </button>`).join('')}`);
+}
+function ingredientiHTML(c,mese){
+  if(!c.ing||!c.ing.length)return '';
+  var s='<div class="titoletto"><span>Ti serve</span></div>';
+  c.ing.forEach(function(i){
+    var p=MAPPA[i];if(!p)return;
+    var ok=disponibile(i);
+    var fuori=p.st&&!inStagione(p,mese);
+    s+='<div class="riga">'+
+       '<div class="box"'+(ok?' style="background:var(--oliva);border-color:var(--oliva)"':'')+'>'+(ok?'\u2713':'')+'</div>'+
+       '<span class="etichetta">'+esc(p.n)+'</span>'+
+       (fuori?'<span class="tag poco">fuori stagione</span>':'')+
+       (ok?'':'<span class="tag finito">manca</span>')+
+       '</div>';
+  });
+  return s;
+}
+function foglioPiatto(cid){
+  const c=CENE_MAP[cid];if(!c)return;
+  const mese=new Date().getMonth()+1;
+  const fs_=fuoriStagione(c,mese);
+  const mancano=mancanti(c);
+  const gg=S.storico[c.id]?giorniDa(S.storico[c.id]):null;
+  const f=faccia(c);
+  apriFoglio(`
+    <div class="ritrattone ${FOTO_CAT.has(f.ic)?'confoto':''}" style="background:${f.col}14;border-color:${f.col}2b;color:${f.col}">${riquadro(f,'enorme')}</div>
+    <h3>${esc(c.n)}</h3>
+    <div class="segni" style="margin-bottom:14px">
+      <span class="tag manca">${c.m===0?'zero fornelli':esc(c.m)+' minuti'}</span>
+      ${c.stop?`<span class="tag dove">${icoStop(c.stop)} passa dal ${esc(c.stop)}</span>`:'<span class="tag pronta">non ti fermi</span>'}
+      ${c.ff?'<span class="tag dove">🌀 friggitrice</span>':''}
+      ${doppiaPorzione(c)?'<span class="tag mano">rende doppio</span>':''}
+      ${gg!==null?`<span class="tag manca">${gg===0?'fatta oggi':'fatta '+gg+' giorni fa'}</span>`:''}
+    </div>
+    ${ingredientiHTML(c,mese)}
+    ${c.note?`<div class="titoletto"><span>Le tue note</span></div><div class="avviso"><div class="tx">${esc(c.note)}</div></div>`:''}
+    ${PROC[c.id]?`<div class="titoletto"><span>Come si fa</span></div><div class="avviso chiaro"><div class="tx">${esc(PROC[c.id])}</div></div>`:''}
+    ${fs_.length?`<div class="avviso" style="margin-top:10px"><div class="et">Fuori stagione</div><div class="tx">${esc(fs_.map(i=>MAPPA[i].n.toLowerCase()).join(', '))}: adesso costa di più e sa di meno.</div></div>`:''}
+    <div style="display:flex;gap:8px;margin:18px 0 8px">
+      <button class="icona ${S.pref[c.id]?'attiva':''}" data-pref="${esc(c.id)}" aria-pressed="${!!S.pref[c.id]}" aria-label="Preferito">${ico('stella')}</button>
+      <button class="icona ${avanzoFresco(c.id)?'attiva':''}" data-avanzo="${esc(c.id)}" aria-pressed="${avanzoFresco(c.id)}" aria-label="Ne è avanzato">${ico('avanzo')}</button>
+      <button class="icona" data-no="${esc(c.id)}" aria-label="${S.no[c.id]?'Rimetti fra le cene':'Sposta nel cestino'}">${ico(S.no[c.id]?'indietro':'cestino')}</button>
+      ${mancano.length?`<button class="metti" data-ing="${esc(c.id)}" style="flex:1;margin:0">Manca ${mancano.length}: metti in lista</button>`:''}
+    </div>
+    <button class="fine-spesa" data-cucina="${esc(c.id)}" style="margin-top:4px;background:var(--bosco)">Cucina adesso, passo per passo</button>
+    <button class="fine-spesa" data-metti="${esc(c.id)}" style="margin-top:8px">Metti in agenda</button>
+  `);
+}
+function foglioMiaRicetta(){
+  const cat=[['uova','Uova'],['carne','Carne'],['pesce','Pesce'],['formaggi','Formaggi'],['pasta','Pasta'],
+    ['riso','Riso e farro'],['verdure','Verdure'],['patate','Patate'],['legumi','Legumi'],['fredde','Senza cucinare'],
+    ['etnico','Etnico'],['forno','Forno e pizza'],['zuppe','Zuppe']];
+  apriFoglio(`<h3>Aggiungi una tua ricetta</h3>
+    <div class="aggiungi"><input id="rNome" placeholder="Come si chiama" autocomplete="off" aria-label="Nome della ricetta"></div>
+    <div class="aggiungi"><input id="rMin" type="number" inputmode="numeric" min="0" placeholder="Minuti" value="15" aria-label="Minuti di preparazione"></div>
+    <div class="aggiungi"><select id="rCat" aria-label="Categoria">${cat.map(([k,e])=>`<option value="${k}">${e}</option>`).join('')}</select></div>
+    <div class="aggiungi"><input id="rNote" placeholder="Note o ingredienti, come ti pare" autocomplete="off" aria-label="Note o ingredienti"></div>
+    <button class="fine-spesa" id="salvaRicetta">Salva la ricetta</button>`);
+}
+function foglioMioProdotto(){
+  const rep=['Caseificio','Macellaio','Pescheria','Panificio','Frigo','Verdura','Pane','Dispensa','Etnico','Casa','Igiene'];
+  const cat=[['giorno','Del giorno'],['frigo','Frigo'],['verdura','Verdura'],['dispensa','Dispensa'],['casa','Casa']];
+  apriFoglio(`<h3>Aggiungi un tuo prodotto</h3>
+    <div class="aggiungi"><input id="pNome" placeholder="Nome del prodotto" autocomplete="off" aria-label="Nome del prodotto"></div>
+    <div class="aggiungi"><select id="pRep" aria-label="Reparto">${rep.map(r=>`<option value="${r}">${r}</option>`).join('')}</select></div>
+    <div class="aggiungi"><select id="pCat" aria-label="Categoria">${cat.map(([k,e])=>`<option value="${k}">${e}</option>`).join('')}</select></div>
+    <button class="fine-spesa" id="salvaProdotto">Salva il prodotto</button>`);
+}
+function foglioGiorno(cid){
+  apriFoglio(`<h3>Quale sera?</h3>
+    ${['lun','mar','mer','gio','ven','sab','dom'].map(g=>`<button class="scelta" data-assegna="${g}|${esc(cid)}">
+      <span class="n">${NOMI_GG[g]}</span><span class="d">${S.settimana[g]?'occupato':'libero'}</span></button>`).join('')}`);
+}
+
+/* ============ AZIONI ============ */
+function renderTutto(){
+  renderStasera();renderLista();renderDispensa();renderCene();renderCasa();
+  const scad=faccende().filter(x=>{const s=statoFaccenda(x);return s.g!==null&&s.g>x.g;}).length;
+  const pc=document.getElementById('pallinoCasa');if(pc)pc.hidden=scad===0;
+  const n=daComprare().filter(v=>!S.lista[v.id]).length;
+  document.getElementById('pallinoLista').hidden=n===0;
+  const t={stasera:'Stasera',lista:'La lista',dispensa:'La dispensa',cene:'Le cene',casa:'Casa'};
+  document.getElementById('titolo').textContent=t[vista];
+}
+function aggancia(){
+  document.querySelectorAll('[data-gg]').forEach(b=>b.onclick=()=>foglioScelta(b.dataset.gg));
+  document.querySelectorAll('[data-az="scegli"]').forEach(b=>b.onclick=()=>foglioScelta(chiaveOggi()));
+  document.querySelectorAll('[data-az="sorprendi"]').forEach(b=>b.onclick=()=>{
+    const g=chiaveOggi();
+    let pool=cene().filter(c=>!c.stop&&!S.no[c.id]&&fattibile(c)&&c.id!==S.settimana[g]);
+    if(!pool.length)pool=cene().filter(c=>!c.stop&&!S.no[c.id]&&c.id!==S.settimana[g]);
+    if(!pool.length)pool=cene().filter(c=>!S.no[c.id]&&c.id!==S.settimana[g]);
+    if(!pool.length)pool=cene();
+    if(!pool.length)return;   // hai svuotato il ricettario: non c'è niente da estrarre
+    S.settimana[g]=pool[Math.floor(Math.random()*pool.length)].id;salva();renderTutto();
+  });
+  document.querySelectorAll('[data-assegna]').forEach(b=>b.onclick=()=>{
+    const [g,cid]=b.dataset.assegna.split('|');
+    // se cambi idea sulla cena di stasera, quella di prima non deve restare
+    // segnata come mangiata oggi
+    const prima=S.settimana[g];
+    if(prima&&g===chiaveOggi()&&S.storico[prima]===oggiISO())delete S.storico[prima];
+    if(cid){S.settimana[g]=cid;if(g===chiaveOggi())S.storico[cid]=oggiISO();}
+    else delete S.settimana[g];
+    salva();chiudiFoglio();renderTutto();
+  });
+  document.querySelectorAll('[data-apri]').forEach(b=>b.onclick=()=>foglioPiatto(b.dataset.apri));
+  document.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{catAperta=b.dataset.cat;renderCene();window.scrollTo(0,0);});
+  const tor=document.getElementById('torna');
+  if(tor)tor.onclick=()=>{catAperta=null;renderCene();window.scrollTo(0,0);};
+  const pul=document.getElementById('pulisci');
+  if(pul)pul.onclick=()=>{ricercaCene='';renderCene();};
+  document.querySelectorAll('[data-metti]').forEach(b=>b.onclick=()=>foglioGiorno(b.dataset.metti));
+  document.querySelectorAll('[data-pref]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.pref;
+    if(S.pref[id])delete S.pref[id];else S.pref[id]=true;
+    salva();renderCene();if(document.getElementById('velo').classList.contains('aperto'))foglioPiatto(id);
+  });
+  document.querySelectorAll('[data-no]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.no;
+    if(S.no[id])delete S.no[id];else{S.no[id]=true;delete S.pref[id];}
+    salva();chiudiFoglio();renderCene();
+  });
+  document.querySelectorAll('[data-ing]').forEach(b=>b.onclick=()=>{
+    const c=CENE_MAP[b.dataset.ing];if(!c)return;
+    // stessi ingredienti che il bottone ha contato: se ti fermi in bottega,
+    // il fresco lo prendi lì e non va segnato come finito in dispensa.
+    mancanti(c).forEach(i=>{
+      const vecchio=S.dispensa[i];
+      S.dispensa[i]={s:'finito'};
+      if(vecchio&&vecchio.da)S.dispensa[i].da=vecchio.da;
+    });
+    salva();renderTutto();
+    b.textContent='✓';
+  });
+  const cerca=document.getElementById('cercaCene');
+  if(cerca)cerca.oninput=()=>{
+    ricercaCene=cerca.value;
+    renderCene();
+    const n=document.getElementById('cercaCene');
+    if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}
+  };
+  const cercaD=document.getElementById('cercaDisp');
+  if(cercaD)cercaD.oninput=()=>{
+    ricercaDisp=cercaD.value;
+    renderDispensa();
+    const n=document.getElementById('cercaDisp');
+    if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}
+  };
+  const g=(id,fn)=>{const e=document.getElementById(id);if(e)e.onclick=fn;};
+  g('btnSuper',apriSupermercato);
+  document.querySelectorAll('.vai-super').forEach(b=>b.onclick=apriSupermercato);
+  g('btnSuperLista',apriSupermercato);
+  document.querySelectorAll('[data-vai]').forEach(b=>b.onclick=()=>{
+    const v=document.querySelector('nav button[data-v="'+b.dataset.vai+'"]');
+    if(v)v.click();
+  });
+  document.querySelectorAll('[data-cucina]').forEach(b=>b.onclick=()=>foglioCucina(b.dataset.cucina));
+  document.querySelectorAll('[data-fatta]').forEach(b=>b.onclick=()=>{
+    S.faccende[b.dataset.fatta]=oggiISO();salva();renderTutto();
+  });
+  document.querySelectorAll('[data-toglifac]').forEach(b=>b.onclick=()=>{
+    S.mieFaccende=S.mieFaccende.filter(x=>x.id!==b.dataset.toglifac);salva();renderTutto();
+  });
+  g('addFacc',()=>{
+    const n=document.getElementById('nuovaFacc').value.trim();
+    if(!n)return;
+    const gg=parseInt(document.getElementById('nuovaFaccG').value,10)||7;
+    S.mieFaccende.push({id:'f'+Date.now(),n:n,g:gg,i:'casa',mia:true});
+    salva();renderTutto();
+  });
+  g('apriCorsie',foglioCorsie);
+  g('apriStat',foglioStatistiche);
+  g('apriSync',foglioSync);
+  g('apriReset',azzera);
+  g('salvaSync',()=>{
+    S.sync={url:document.getElementById('sUrl').value.trim(),key:document.getElementById('sKey').value.trim()};
+    salva();
+    document.getElementById('esitoSync').textContent='Credenziali salvate.';
+  });
+  g('pushSync',async()=>{
+    const e=document.getElementById('esitoSync');e.textContent='Carico…';
+    try{e.textContent=await sincronizza('su');}catch(err){e.textContent='Non riuscito: '+err.message;}
+  });
+  g('pullSync',async()=>{
+    const e=document.getElementById('esitoSync');e.textContent='Scarico…';
+    try{e.textContent=await sincronizza('giu');renderTutto();}catch(err){e.textContent='Non riuscito: '+err.message;}
+  });
+  const mia=document.getElementById('btnMiaRicetta');
+  if(mia)mia.onclick=foglioMiaRicetta;
+  const mioP=document.getElementById('btnMioProdotto');
+  if(mioP)mioP.onclick=foglioMioProdotto;
+  const salvaR=document.getElementById('salvaRicetta');
+  if(salvaR)salvaR.onclick=()=>{
+    const n=document.getElementById('rNome').value.trim();
+    if(!n)return;
+    const m=parseInt(document.getElementById('rMin').value,10)||10;
+    const cat=document.getElementById('rCat').value;
+    const note=document.getElementById('rNote').value.trim();
+    S.mie.push({id:'mia'+Date.now(),n:n,m:m,cat:cat,mia:true,note:note,ing:[]});
+    aggiornaCene();salva();chiudiFoglio();renderTutto();
+  };
+  const salvaP=document.getElementById('salvaProdotto');
+  if(salvaP)salvaP.onclick=()=>{
+    const n=document.getElementById('pNome').value.trim();
+    if(!n)return;
+    const r=document.getElementById('pRep').value;
+    const c=document.getElementById('pCat').value;
+    S.mieiProd.push({id:'mio'+Date.now(),n:n,r:r,c:c,d:0,mio:true});
+    aggiornaMappa();salva();chiudiFoglio();renderTutto();
+  };
+  document.querySelectorAll('[data-spunta]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.spunta;
+    if(S.lista[id])delete S.lista[id];else S.lista[id]=true;
+    salva();renderTutto();
+  });
+  document.querySelectorAll('[data-rimuovi]').forEach(b=>b.onclick=()=>{
+    S.extra=S.extra.filter(e=>e.id!==b.dataset.rimuovi);
+    delete S.lista[b.dataset.rimuovi];salva();renderTutto();
+  });
+  document.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.st,s=b.dataset.s;
+    const vecchio=S.dispensa[id]||null;
+    if(vecchio&&vecchio.s===s){delete S.dispensa[id];}
+    else{
+      S.dispensa[id]={s:s};
+      // la data d'ingresso vale finché è lo stesso pezzo in casa: "c'è" e "poco"
+      // sono lo stesso pezzo, ma dopo "finito" quello che segni è roba nuova.
+      const stessoPezzo=vecchio&&(vecchio.s==='ok'||vecchio.s==='poco')&&(s==='ok'||s==='poco');
+      if(stessoPezzo&&vecchio.da)S.dispensa[id].da=vecchio.da;
+      if(s==='ok'&&!S.dispensa[id].da)S.dispensa[id].da=oggiISO();
+      if(s==='ok')delete S.lista[id];
+    }
+    salva();renderTutto();
+  });
+  document.querySelectorAll('[data-ml]').forEach(b=>b.onclick=()=>{
+    S.modoLista=b.dataset.ml;salva();renderTutto();
+  });
+  document.querySelectorAll('[data-butta]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.butta;
+    S.buttati[id]=(S.buttati[id]||0)+1;
+    S.dispensa[id]={s:'finito'};
+    salva();renderTutto();
+  });
+  const cop=document.getElementById('btnCopia');
+  if(cop)cop.onclick=async()=>{
+    const r=await copiaLista();
+    if(r===true){cop.textContent='Copiata ✓';setTimeout(()=>renderLista(),1400);}
+    else apriFoglio('<h3>La tua lista</h3><div class="avviso"><div class="tx" style="white-space:pre-wrap;font-family:var(--mono);font-size:12px">'+esc(r)+'</div></div>');
+  };
+  document.querySelectorAll('[data-avanzo]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.avanzo;
+    // un avanzo scaduto conta come assente: il primo tocco lo rimette a oggi
+    if(avanzoFresco(id))delete S.avanzi[id];else S.avanzi[id]=oggiISO();
+    salva();renderTutto();
+    if(document.getElementById('velo').classList.contains('aperto'))foglioPiatto(id);
+  });
+  document.querySelectorAll('[data-sposta]').forEach(b=>b.onclick=()=>{
+    const [r,d]=b.dataset.sposta.split('|');
+    spostaReparto(r,parseInt(d,10));
+    foglioCorsie();renderLista();
+  });
+  document.querySelectorAll('[data-fd]').forEach(b=>b.onclick=()=>{filtroDisp=b.dataset.fd;renderDispensa();});
+  const inp=document.getElementById('inputExtra'),btn=document.getElementById('btnExtra');
+  if(btn){
+    const add=()=>{
+      const v=inp.value.trim();if(!v)return;
+      S.extra.push({id:'x'+Date.now(),n:v});inp.value='';salva();renderTutto();
+      setTimeout(()=>{const i=document.getElementById('inputExtra');if(i)i.focus();},30);
+    };
+    btn.onclick=add;
+    inp.onkeydown=e=>{if(e.key==='Enter')add();};
+  }
+  const fine=document.getElementById('btnFineSpesa');
+  if(fine)fine.onclick=()=>{
+    nelCarrello().forEach(id=>{
+      if(MAPPA[id]){S.dispensa[id]={s:'ok',da:oggiISO()};S.conta[id]=(S.conta[id]||0)+1;}
+      else S.extra=S.extra.filter(e=>e.id!==id);
+    });
+    S.lista={};salva();renderTutto();
+  };
+}
+document.getElementById('velo').onclick=chiudiFoglio;
+document.querySelectorAll('nav button[data-v]').forEach(b=>b.onclick=()=>{
+  vista=b.dataset.v;
+  document.querySelectorAll('nav button[data-v]').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('.vista').forEach(v=>v.classList.remove('attiva'));
+  document.getElementById('vista'+vista.charAt(0).toUpperCase()+vista.slice(1)).classList.add('attiva');
+  const t={stasera:'Stasera',lista:'La lista',dispensa:'La dispensa',cene:'Le cene',casa:'Casa'};
+  document.getElementById('titolo').textContent=t[vista];
+  window.scrollTo(0,0);
+});
+function foglioCorsie(){
+  const o=ordineReparti();
+  apriFoglio(`<h3>Ordine delle corsie</h3>
+    <p class="sub" style="margin:-6px 0 12px">Mettili nell'ordine in cui li trovi nel tuo supermercato. La lista li seguirà.</p>
+    ${o.map((r,i)=>`<div class="riga">
+      <span class="etichetta">${esc(r)}</span>
+      <button class="icona" data-sposta="${esc(r)}|-1" ${i===0?'disabled':''} aria-label="Sposta ${esc(r)} in su">↑</button>
+      <button class="icona" data-sposta="${esc(r)}|1" ${i===o.length-1?'disabled':''} aria-label="Sposta ${esc(r)} in giù">↓</button>
+    </div>`).join('')}`);
+}
+function foglioStatistiche(){
+  const st=statistiche();
+  let c='<h3>Cosa butti e cosa compri</h3>';
+  if(!st.sprechi.length&&!st.comprati.length){
+    c+='<div class="vuoto-stato">Ancora niente da mostrare.<br>Usa il cestino 🗑 nella dispensa quando butti qualcosa, e i numeri arrivano da soli.</div>';
+  }
+  if(st.sprechi.length){
+    c+='<div class="titoletto"><span>Buttato più spesso</span></div>';
+    c+=st.sprechi.map(s=>`<div class="riga">
+      <div class="voce"><div class="n">${esc(s.n)}</div><div class="g ${s.c&&s.b/s.c>0.5?'allarme':''}">buttato ${s.b} volte su ${s.c||'?'} comprate</div></div>
+    </div>`).join('');
+  }
+  if(st.comprati.length){
+    c+='<div class="titoletto"><span>Comprato più spesso</span></div>';
+    c+=st.comprati.map(s=>`<div class="riga"><span class="etichetta">${esc(s.n)}</span><span class="tag mano">${s.c}×</span></div>`).join('');
+  }
+  apriFoglio(c);
+}
+function foglioSync(){
+  const s=S.sync||{};
+  apriFoglio(`<h3>Sincronizza fra telefono e PC</h3>
+    <p class="sub" style="margin:-6px 0 12px">Facoltativo. Serve un progetto Supabase con una tabella <code>cucina_stato</code> (colonne: id testo chiave primaria, dati jsonb, aggiornato timestamp).</p>
+    <div class="aggiungi"><input id="sUrl" placeholder="https://xxxx.supabase.co" value="${esc(s.url||'')}" autocomplete="off" aria-label="Indirizzo del progetto Supabase"></div>
+    <div class="aggiungi"><input id="sKey" placeholder="Chiave anon" value="${esc(s.key||'')}" autocomplete="off" aria-label="Chiave anon"></div>
+    <button class="fine-spesa" id="salvaSync" style="margin-bottom:8px">Salva le credenziali</button>
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <button class="riga" id="pushSync" style="justify-content:center;font-weight:700">Carica ↑</button>
+      <button class="riga" id="pullSync" style="justify-content:center;font-weight:700">Scarica ↓</button>
+    </div>
+    <div id="esitoSync" class="sub"></div>`);
+}
+function foglioImpostazioni(){
+  apriFoglio(`<h3>Opzioni</h3>
+    <button class="scelta" id="apriCorsie"><span class="n">Ordine delle corsie</span><span class="d">→</span></button>
+    <button class="scelta" id="apriStat"><span class="n">Cosa butti e cosa compri</span><span class="d">→</span></button>
+    <button class="scelta" id="apriSync"><span class="n">Sincronizza fra dispositivi</span><span class="d">→</span></button>
+    <button class="scelta" id="apriReset"><span class="n" style="color:var(--terra)">Azzera tutto</span><span class="d">→</span></button>`);
+}
+async function azzera(){
+  if(!confirm('Cancella dispensa, lista e settimana. Sicuro?'))return;
+  S={dispensa:{},settimana:{},lista:{},extra:[],modoLista:'mancante',pref:{},no:{},mie:[],mieiProd:[],storico:{},ordine:[],avanzi:{},conta:{},buttati:{},faccende:{},mieFaccende:[],sync:{url:'',key:''},ver:4};
+  clearTimeout(salvataggio);salvataggio=null;
+  await archivio.cancella(CHIAVE);
+  aggiornaMappa();aggiornaCene();
+  chiudiFoglio();renderTutto();
+}
+document.getElementById('btnImpostazioni').onclick=foglioImpostazioni;
+document.getElementById('btnOpzioniLato').onclick=foglioImpostazioni;
+document.getElementById('btnPreferiti').addEventListener('click',()=>{catAperta='pref';ricercaCene='';renderCene();window.scrollTo(0,0);});
+
+/* registrazione offline: fallisce senza rumore se aperta come file locale */
+if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+
+/* ============ AVVIO ============ */
+let giornoMostrato=null;
+function scriviData(){
+  const d=new Date();
+  giornoMostrato=oggiISO();
+  document.getElementById('dataOggi').textContent=
+    d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
+}
+/* Un'app installata sul telefono resta aperta per giorni: a mezzanotte
+   la data in testata e "la cena di stasera" sarebbero di ieri. */
+function controllaGiorno(){
+  if(!giornoMostrato||giornoMostrato===oggiISO())return;
+  // non strappare il lavoro di mano: se c'è un foglio aperto o stai scrivendo,
+  // si riprova al giro dopo (il controllo gira ogni minuto).
+  // il velo viene marcato subito da apriFoglio, la classe sul foglio solo
+  // al fotogramma dopo: guardare il velo è la verifica affidabile.
+  const a=document.activeElement;
+  if(document.getElementById('velo').classList.contains('aperto'))return;
+  if(document.getElementById('spesaGrande'))return;
+  if(a&&(a.tagName==='INPUT'||a.tagName==='SELECT'||a.tagName==='TEXTAREA'))return;
+  scriviData();renderTutto();
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')controllaGiorno();});
+window.addEventListener('focus',controllaGiorno);
+setInterval(controllaGiorno,60000);
+
+(async()=>{
+  try{
+    scriviData();
+    document.getElementById('vistaStasera').innerHTML='<div class="caricamento">Carico…</div>';
+    await carica();
+    aggiornaMappa();aggiornaCene();
+    renderTutto();
+  }catch(e){
+    document.getElementById('vistaStasera').innerHTML=
+      '<div class="vuoto-stato">Qualcosa si è rotto all\'avvio.<br><span style="font-family:var(--mono);font-size:11px">'+
+      String(e&&e.message||e)+'</span></div>';
+  }
+})();
+</script>
 </body>
 </html>

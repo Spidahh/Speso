@@ -1,19 +1,20 @@
 {
-  "name": "Speso",
+  "name": "Speso — decidi le cene, la lista si scrive da sola",
   "short_name": "Speso",
-  "description": "Ricette scelte e lista della spesa.",
+  "description": "Decidi le cene della settimana: la lista della spesa si scrive da sola, ordinata per le corsie del tuo supermercato.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#FFFFFF",
-  "theme_color": "#071A38",
+  "background_color": "#FAF5EF",
+  "theme_color": "#283A2A",
   "lang": "it",
+  "categories": ["food", "lifestyle", "productivity"],
   "icons": [
     {
       "src": "icona.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "icona-180.png",
