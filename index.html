@@ -306,7 +306,7 @@ nav button.on .et{font-weight:600}
 .capo-gruppo .et{font-size:12.5px;font-weight:600;color:var(--pietra)}
 .mini{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:9px}
 .minicarta{background:var(--carta);border:1px solid var(--linea);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:7px}
-.minicarta .quadro{width:100%;height:56px;border-radius:11px;border:1px solid;display:flex;align-items:center;justify-content:center}
+.minicarta .quadro{width:44px;height:44px;border-radius:12px;border:1px solid;display:flex;align-items:center;justify-content:center}
 .minicarta .n{font-size:13.5px;font-weight:500;line-height:1.25}
 .minicarta .d{font-size:11.5px;color:var(--pietra)}
 
@@ -375,14 +375,14 @@ nav button.on .et{font-weight:600}
   .schede{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;align-items:start}
   .faccende{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
   .avvisi{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
-  .settimana{grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
+  .settimana{grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px}
   /* i giorni diventano schedine verticali */
   .settimana .giorno{
     flex-direction:column;align-items:stretch;gap:9px;padding:12px;text-align:left;margin-bottom:0;
   }
   .settimana .giorno .quadro{width:100%;height:auto;aspect-ratio:1;border-radius:12px}
   .settimana .giorno .gg{width:auto}
-  .settimana .giorno .nome{font-size:13px;line-height:1.3;font-weight:500}
+  .settimana .giorno .nome{font-size:13px;line-height:1.35;font-weight:500;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .settimana .giorno .pin{position:absolute;top:11px;right:11px}
   .settimana .giorno{position:relative}
   /* due colonne: contenuto a sinistra, lista della spesa a fianco */
@@ -1550,9 +1550,11 @@ function capoPagina(){
 /* tre cene che puoi fare adesso con quello che hai in casa */
 function suggeriteHTML(){
   const l=applicaFiltro(cene().filter(c=>!S.no[c.id]),'pronte').sort((a,b)=>a.m-b.m).slice(0,3);
-  if(!l.length)return '';
-  return `<div class="capo-blocco"><h3>Puoi farle adesso</h3><button class="vedi" data-cat="pronte">Vedi tutte</button></div>
-    <div class="schede">${l.map(schedaHTML).join('')}</div>`;
+  const capo=`<div class="capo-blocco"><h3>Puoi farle adesso</h3><button class="vedi" data-cat="pronte">Vedi tutte</button></div>`;
+  // senza niente in dispensa la sezione resterebbe un buco bianco: meglio dirlo
+  if(!l.length)return capo+`<div class="vuoto-stato" style="padding:18px 6px">
+    Segna cosa hai in dispensa e qui compaiono le cene che puoi fare subito.</div>`;
+  return capo+`<div class="schede">${l.map(schedaHTML).join('')}</div>`;
 }
 /* cosa sta finendo in dispensa */
 function scarseggiaHTML(){

@@ -1,4 +1,4 @@
-const CACHE = 'cucina-v2';
+const CACHE = 'speso-v3';
 const CSS_FONT = 'https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap';
 // il CSS dei caratteri sta qui perché l'offline funzioni già dalla prima visita,
 // senza dipendere da quando il service worker prende il controllo della pagina
