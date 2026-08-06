@@ -2148,7 +2148,11 @@ let sceltaGiorno=null, sceltaCerca='', sceltaFiltro='pronte';
 const FILTRI_SCELTA=[['pronte','Con quello che hai'],['veloci','Sotto 15 min'],['pref','Preferiti'],['tutte','Tutte']];
 
 function foglioScelta(g){
-  sceltaGiorno=g; sceltaCerca=''; sceltaFiltro='pronte';
+  sceltaGiorno=g; sceltaCerca='';
+  // partire da "con quello che hai" ha senso solo se hai qualcosa: a dispensa
+  // vuota il foglio si aprirebbe su "nessun piatto", che è la peggiore accoglienza
+  const pronte=applicaFiltro(cene().filter(c=>!S.no[c.id]),'pronte').length;
+  sceltaFiltro = pronte>=3 ? 'pronte' : 'tutte';
   apriFoglio(`<h3>Cosa mangi ${g===chiaveOggi()?'stasera':NOMI_GG[g].toLowerCase()}</h3>
     <div class="aggiungi" style="margin:0 0 10px">
       <input id="cercaScelta" placeholder="Cerca un piatto o un ingrediente…" autocomplete="off" aria-label="Cerca un piatto">
