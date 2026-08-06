@@ -1584,7 +1584,7 @@ function suggeriteHTML(){
 }
 /* cosa sta finendo in dispensa */
 function scarseggiaHTML(){
-  const l=prodotti().filter(p=>serveComprare(p.id)).slice(0,5);
+  const l=prodotti().filter(p=>p.c!=='giorno'&&serveComprare(p.id)).slice(0,5);
   if(!l.length)return '';
   return `<div class="divisorio"></div><div class="capo-blocco"><h3>Sta finendo</h3><button class="vedi" data-vai="dispensa">Vedi tutto</button></div>
     <div class="mini">${l.map(p=>{
@@ -1773,9 +1773,10 @@ function renderLista(){
 
 /* ============ VISTA DISPENSA ============ */
 function renderDispensa(){
-  const f=[['tutto','Tutto'],['giorno','Del giorno'],['frigo','Frigo'],['verdura','Verdura'],['dispensa','Dispensa'],['casa','Casa']];
-  const inCasa=prodotti().filter(p=>stato(p.id)==='ok').length;
-  let h=capoVista('Dispensa', inCasa+' su '+prodotti().length+' prodotti in casa',
+  const f=[['tutto','Tutto'],['frigo','Frigo'],['verdura','Verdura'],['dispensa','Dispensa'],['casa','Casa']];
+  const tenuti=prodotti().filter(p=>p.c!=='giorno');
+  const inCasa=tenuti.filter(p=>stato(p.id)==='ok').length;
+  let h=capoVista('Dispensa', inCasa+' su '+tenuti.length+' prodotti in casa',
     '<button class="pillola" id="btnMioProdotto">'+ico('piu','mini')+' Aggiungi</button>')+
   `<div class="aggiungi">
     <input id="cercaDisp" placeholder="Cerca un prodotto…" value="${esc(ricercaDisp)}" autocomplete="off" aria-label="Cerca un prodotto nella dispensa">
@@ -1788,7 +1789,11 @@ function renderDispensa(){
       ${scaduti.map(p=>rigaProdotto(p)).join('')}</div>`;
   }
   const q=cercaNorm(ricercaDisp);
-  const lista=prodotti().filter(p=>(filtroDisp==='tutto'||p.c===filtroDisp)&&(!q||p.n.toLowerCase().includes(q)));
+  // Carne, pesce, latticini freschi e focaccia non sono scorte: si comprano
+  // e si mangiano il giorno stesso. Tenerli qui voleva dire 26 righe che
+  // sarebbero state per sempre su "Finito". Compaiono nella lista quando
+  // una cena li richiede.
+  const lista=prodotti().filter(p=>p.c!=='giorno'&&(filtroDisp==='tutto'||p.c===filtroDisp)&&(!q||p.n.toLowerCase().includes(q)));
   const gruppi={};
   lista.forEach(p=>{(gruppi[p.r]=gruppi[p.r]||[]).push(p);});
   h+='<div class="sezioni">';
@@ -1798,6 +1803,33 @@ function renderDispensa(){
   h+='</div>';
   document.getElementById('vistaDispensa').innerHTML=h;
   aggancia();
+}
+/* Toccare 'C'è' ricostruiva l'intera pagina: il bottone sotto il dito spariva
+   e il tocco successivo si perdeva. Qui si rifà solo la riga interessata,
+   piu' i due contatori in alto. */
+function aggiornaRiga(id){
+  const p=MAPPA[id];
+  if(!p){renderTutto();return;}
+  // lo stesso prodotto può comparire in più viste (Dispensa e Casa): raccolgo
+  // prima le righe, poi le sostituisco. Sostituire mentre scorro i bottoni
+  // significava toccare un nodo già staccato, e l'eccezione lasciava i
+  // bottoni nuovi senza gestore: il tocco dopo non faceva niente.
+  const righe=[];
+  document.querySelectorAll('[data-st="'+CSS.escape(id)+'"]').forEach(b=>{
+    const r=b.closest('.riga');
+    if(r&&r.parentNode&&!righe.includes(r))righe.push(r);
+  });
+  if(!righe.length){renderTutto();return;}
+  righe.forEach(r=>{r.outerHTML=rigaProdotto(p);});
+  aggancia();
+  aggiornaAvvisi();
+}
+/* i due pallini e i conteggi in testata vanno riallineati comunque */
+function aggiornaAvvisi(){
+  const n=daComprare().filter(v=>!S.lista[v.id]).length;
+  const pl=document.getElementById('pallinoLista'); if(pl)pl.hidden=n===0;
+  const scad=faccende().filter(x=>{const s=statoFaccenda(x);return s.g!==null&&s.g>x.g;}).length;
+  const pc=document.getElementById('pallinoCasa'); if(pc)pc.hidden=scad===0;
 }
 function rigaProdotto(p){
   const s=stato(p.id);
@@ -2431,7 +2463,7 @@ function aggancia(){
       if(s==='ok'&&!S.dispensa[id].da)S.dispensa[id].da=oggiISO();
       if(s==='ok')delete S.lista[id];
     }
-    salva();renderTutto();
+    salva();aggiornaRiga(id);
   });
   document.querySelectorAll('[data-ml]').forEach(b=>b.onclick=()=>{
     S.modoLista=b.dataset.ml;salva();renderTutto();
@@ -2440,7 +2472,7 @@ function aggancia(){
     const id=b.dataset.butta;
     S.buttati[id]=(S.buttati[id]||0)+1;
     S.dispensa[id]={s:'finito'};
-    salva();renderTutto();
+    salva();aggiornaRiga(id);
   });
   const cop=document.getElementById('btnCopia');
   if(cop)cop.onclick=async()=>{
