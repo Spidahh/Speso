@@ -285,7 +285,13 @@ nav button.on .et{font-weight:600}
 .foglio h3{font-family:var(--display);font-weight:600;font-size:21px;margin:2px 0 12px}
 .scelta{width:100%;text-align:left;background:var(--carta);border:1px solid var(--linea);border-radius:11px;padding:12px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px}
 .scelta .n{flex:1;font-size:15px}
-.scelta .d{font-size:12px;font-weight:500;color:var(--pietra);flex:none}
+.scelta .d{font-size:12px;font-weight:500;color:var(--pietra);flex:none;display:inline-flex;align-items:center;gap:3px}
+.scelta .miniatura{width:40px;height:40px;flex:none;border-radius:10px;border:1px solid;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.scelta .miniatura .foto{width:100%;height:100%;object-fit:cover}
+#cercaScelta{width:100%}
+#filtriScelta{position:sticky;top:0;background:var(--crema);z-index:2;padding-top:2px}
+.foglio{overscroll-behavior:contain}
+body.foglio-aperto{overflow:hidden}
 .vuoto-stato{text-align:center;color:var(--pietra);font-size:14.5px;padding:34px 20px;line-height:1.6}
 .caricamento{text-align:center;color:var(--pietra);font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:40px}
 
@@ -338,6 +344,7 @@ nav button.on .et{font-weight:600}
 .lato .stasera h2{font-size:21px;margin:11px 0 5px}
 .lato .stasera .ing{font-size:13.5px;margin-top:9px}
 .lato .stasera .azioni{margin-top:13px}
+.altra-via{display:block;width:100%;text-align:left;margin-top:11px;font-size:13px;color:rgba(255,255,255,.72);padding:2px 0}
 .lato .stasera .azioni button{padding:10px 8px;font-size:13.5px}
 @media(max-width:899px){ .cruscotto .lato{order:-1} .lato .pannello{display:none} }
 
@@ -1516,8 +1523,9 @@ function renderStasera(){
     corpo=`<span class="fermata">❓ Ancora niente</span>
       <h2>Non hai deciso</h2>
       <div class="meta">${NOMI_GG[g]}</div>
-      <p class="ing">Scegline una, oppure fatti sorprendere con quello che hai già in casa.</p>
-      <div class="azioni"><button class="pieno" data-az="scegli">Scegli la cena</button><button data-az="sorprendi">Sorprendimi</button></div>`;
+      <p class="ing">Scegli tu, fatti sorprendere con quello che hai in casa, oppure salta il passaggio: segna cosa ti manca e decidi davanti al frigo.</p>
+      <div class="azioni"><button class="pieno" data-az="scegli">Scegli la cena</button><button data-az="sorprendi">Sorprendimi</button></div>
+      <button class="altra-via" data-vai="dispensa">Oppure fai la spesa e decidi dopo →</button>`;
   }else{
     const mancano=mancanti(c);
     corpo=`<span class="fermata">${c.stop?icoStop(c.stop)+' Passa dal '+esc(c.stop):'🏠 Non ti fermi'}</span>
@@ -2124,6 +2132,7 @@ function apriFoglio(html){
   const f=document.getElementById('foglio');
   f.innerHTML=html;
   document.getElementById('velo').classList.add('aperto');
+  document.body.classList.add('foglio-aperto');
   requestAnimationFrame(()=>f.classList.add('aperto'));
   aggancia();
 }
@@ -2131,16 +2140,46 @@ function chiudiFoglio(){
   fermaCronometro();
   document.getElementById('foglio').classList.remove('aperto');
   document.getElementById('velo').classList.remove('aperto');
+  document.body.classList.remove('foglio-aperto');
 }
+/* Scegliere fra 209 piatti scorrendo un elenco unico voleva dire quattordici
+   schermate: qui si cerca per nome o ingrediente e si filtra. */
+let sceltaGiorno=null, sceltaCerca='', sceltaFiltro='pronte';
+const FILTRI_SCELTA=[['pronte','Con quello che hai'],['veloci','Sotto 15 min'],['pref','Preferiti'],['tutte','Tutte']];
+
 function foglioScelta(g){
-  const l=cene().filter(c=>!S.no[c.id]).sort((a,b)=>
-    (!!a.stop-!!b.stop)||(fattibile(b)-fattibile(a))||a.m-b.m);
+  sceltaGiorno=g; sceltaCerca=''; sceltaFiltro='pronte';
   apriFoglio(`<h3>Cosa mangi ${g===chiaveOggi()?'stasera':NOMI_GG[g].toLowerCase()}</h3>
-    ${S.settimana[g]?`<button class="scelta" data-assegna="${g}|"><span class="n">Togli la cena</span><span class="d">—</span></button>`:''}
-    ${l.map(c=>`<button class="scelta" data-assegna="${esc(g)}|${esc(c.id)}">
+    <div class="aggiungi" style="margin:0 0 10px">
+      <input id="cercaScelta" placeholder="Cerca un piatto o un ingrediente…" autocomplete="off" aria-label="Cerca un piatto">
+    </div>
+    <div class="filtri" id="filtriScelta">${FILTRI_SCELTA.map(([k,e])=>
+      `<button data-fs="${k}" class="${sceltaFiltro===k?'on':''}">${e}</button>`).join('')}</div>
+    <div id="elencoScelta">${elencoScelta()}</div>`);
+}
+function elencoScelta(){
+  const g=sceltaGiorno;
+  let l=cene().filter(c=>!S.no[c.id]);
+  if(sceltaFiltro!=='tutte')l=applicaFiltro(l,sceltaFiltro);
+  const q=cercaNorm(sceltaCerca);
+  if(q)l=l.filter(c=>c.n.toLowerCase().includes(q)||
+    c.ing.some(i=>MAPPA[i]&&MAPPA[i].n.toLowerCase().includes(q)));
+  l=l.sort((a,b)=>(!!a.stop-!!b.stop)||(fattibile(b)-fattibile(a))||a.m-b.m);
+  const tot=l.length, mostra=l.slice(0,40);
+  let h=S.settimana[g]?`<button class="scelta" data-assegna="${esc(g)}|"><span class="n">Togli la cena</span><span class="d">—</span></button>`:'';
+  if(!tot){
+    return h+`<div class="vuoto-stato">Nessun piatto con questi filtri.<br>Prova con «Tutte».</div>`;
+  }
+  h+=mostra.map(c=>{
+    const f=faccia(c);
+    return `<button class="scelta" data-assegna="${esc(g)}|${esc(c.id)}">
+      <span class="miniatura ${FOTO_CAT.has(f.ic)?'confoto':''}" style="background:${f.col}14;border-color:${f.col}2b;color:${f.col}">${riquadro(f,'')}</span>
       <span class="n">${esc(c.n)}</span>
-      <span class="d">${c.stop?icoStop(c.stop)+' ':''}${fattibile(c)?'✓ ':''}${esc(c.m)}′</span>
-    </button>`).join('')}`);
+      <span class="d">${c.stop?icoStop(c.stop)+' ':''}${fattibile(c)?ico('pronte','mini'):''} ${esc(c.m)}′</span>
+    </button>`;
+  }).join('');
+  if(tot>mostra.length)h+=`<div class="vuoto-stato" style="padding:14px">Altri ${tot-mostra.length} piatti: restringi con la ricerca.</div>`;
+  return h;
 }
 function ingredientiHTML(c,mese){
   if(!c.ing||!c.ing.length)return '';
@@ -2311,6 +2350,20 @@ function aggancia(){
     const gg=parseInt(document.getElementById('nuovaFaccG').value,10)||7;
     S.mieFaccende.push({id:'f'+Date.now(),n:n,g:gg,i:'casa',mia:true});
     salva();renderTutto();
+  });
+  const cs=document.getElementById('cercaScelta');
+  if(cs)cs.oninput=()=>{
+    sceltaCerca=cs.value;
+    const el=document.getElementById('elencoScelta');
+    if(el){el.innerHTML=elencoScelta();aggancia();}
+    const n=document.getElementById('cercaScelta');
+    if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}
+  };
+  document.querySelectorAll('[data-fs]').forEach(b=>b.onclick=()=>{
+    sceltaFiltro=b.dataset.fs;
+    document.querySelectorAll('[data-fs]').forEach(x=>x.classList.toggle('on',x===b));
+    const el=document.getElementById('elencoScelta');
+    if(el){el.innerHTML=elencoScelta();aggancia();}
   });
   g('apriCorsie',foglioCorsie);
   g('apriStat',foglioStatistiche);
