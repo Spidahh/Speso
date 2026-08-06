@@ -1,9 +1,8 @@
-const CACHE = 'speso-v3';
+const CACHE = 'speso-v4';
 const CSS_FONT = 'https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap';
 // il CSS dei caratteri sta qui perché l'offline funzioni già dalla prima visita,
 // senza dipendere da quando il service worker prende il controllo della pagina
 const FILE = ['./', './index.html', './manifest.json', './icona.svg', './marchio.svg', './logotipo.svg', './icona-180.png', './icona-512.png',
-  ...['pasta','carne','uova','formaggi','pesce','verdure','riso','legumi','patate','fredde','etnico','forno','zuppe'].map(n=>'./foto/'+n+'.jpg'),
   CSS_FONT];
 const FONT = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
