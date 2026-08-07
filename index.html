@@ -2276,8 +2276,11 @@ function foglioMiaRicetta(){
     <button class="fine-spesa" id="salvaRicetta">Salva la ricetta</button>`);
 }
 function foglioMioProdotto(){
-  const rep=['Caseificio','Macellaio','Pescheria','Panificio','Frigo','Verdura','Pane','Dispensa','Etnico','Casa','Igiene'];
-  const cat=[['giorno','Del giorno'],['frigo','Frigo'],['verdura','Verdura'],['dispensa','Dispensa'],['casa','Casa']];
+  const rep=['Caseificio','Macellaio','Pescheria','Panificio','Frigo','Surgelati','Verdura','Pane','Dispensa','Etnico','Casa','Igiene'];
+  // "del giorno" resta possibile, ma va detto cosa comporta: quella roba non
+  // si conserva, quindi non finisce in dispensa — compare solo nella lista
+  const cat=[['dispensa','Lo tengo in dispensa'],['frigo','Lo tengo in frigo'],['verdura','Verdura, dura pochi giorni'],
+    ['casa','Casa o igiene'],['giorno','Si mangia il giorno stesso (non va in dispensa)']];
   apriFoglio(`<h3>Aggiungi un tuo prodotto</h3>
     <div class="aggiungi"><input id="pNome" placeholder="Nome del prodotto" autocomplete="off" aria-label="Nome del prodotto"></div>
     <div class="aggiungi"><select id="pRep" aria-label="Reparto">${rep.map(r=>`<option value="${r}">${r}</option>`).join('')}</select></div>
